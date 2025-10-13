@@ -1,137 +1,133 @@
-// Background service worker for Lemo Extension
-console.log('Lemo Extension background script loaded');
+// Background service worker for Lemo AI Assistant
+console.log('Lemo AI Assistant: Background script starting...');
 
-// Extension installation/startup
-chrome.runtime.onInstalled.addListener((details) => {
-    console.log('Extension installed:', details);
+// Initialize extension functionality
+function initializeExtension() {
+    console.log('Lemo AI Assistant: Initializing extension...');
     
-    if (details.reason === 'install') {
-        // Set default values on first install
-        chrome.storage.local.set({
-            isConnected: false,
-            settings: {
-                theme: 'light',
-                notifications: true
+    // Set up installed listener if available
+    if (chrome.runtime && chrome.runtime.onInstalled) {
+        chrome.runtime.onInstalled.addListener(() => {
+            console.log('Lemo AI Assistant installed');
+        });
+    } else {
+        console.log('Lemo AI Assistant: chrome.runtime not available');
+    }
+    
+    // Set up action click listener
+    setupActionClickListener();
+    
+    // Set up message listener
+    setupMessageListener();
+    
+    // Set up tab listeners
+    setupTabListeners();
+}
+
+function setupActionClickListener() {
+    if (chrome.action && chrome.action.onClicked) {
+        console.log('Lemo AI Assistant: Setting up action click listener');
+        chrome.action.onClicked.addListener(handleActionClick);
+    } else {
+        console.log('Lemo AI Assistant: chrome.action not available, retrying in 1s');
+        setTimeout(() => {
+            setupActionClickListener();
+        }, 1000);
+    }
+}
+
+async function handleActionClick(tab) {
+    try {
+        console.log('Lemo AI Assistant: Extension icon clicked for tab', tab.id);
+        // Send message to content script to toggle the chatbot
+        await chrome.tabs.sendMessage(tab.id, {
+            action: "toggle_chatbot"
+        });
+    } catch (error) {
+        console.log('Lemo AI Assistant: Error sending message to content script:', error);
+        // If content script isn't loaded yet, inject it
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ['content.js']
+            });
+            
+            // Wait a moment for the script to initialize
+            setTimeout(async () => {
+                try {
+                    await chrome.tabs.sendMessage(tab.id, {
+                        action: "toggle_chatbot"
+                    });
+                } catch (e) {
+                    console.log('Lemo AI Assistant: Could not send message after injection:', e);
+                }
+            }, 500);
+        } catch (injectionError) {
+            console.log('Lemo AI Assistant: Could not inject content script:', injectionError);
+        }
+    }
+}
+
+function setupMessageListener() {
+    if (chrome.runtime && chrome.runtime.onMessage) {
+        console.log('Lemo AI Assistant: Setting up message listener');
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === "chatbot_toggled" && chrome.action) {
+                try {
+                    // Update icon badge to show if chatbot is active
+                    chrome.action.setBadgeText({
+                        text: request.isVisible ? "ON" : "",
+                        tabId: sender.tab.id
+                    });
+                    chrome.action.setBadgeBackgroundColor({
+                        color: "#667eea",
+                        tabId: sender.tab.id
+                    });
+                } catch (error) {
+                    console.log('Lemo AI Assistant: Could not set badge:', error);
+                }
             }
         });
-        console.log('Default settings initialized');
-    }
-});
-
-// Handle extension startup
-chrome.runtime.onStartup.addListener(() => {
-    console.log('Extension started');
-});
-
-// Handle messages from popup or content scripts
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('Background received message:', request);
-    
-    switch (request.action) {
-        case 'getStatus':
-            handleGetStatus(sendResponse);
-            break;
-            
-        case 'connect':
-            handleConnect(request.data, sendResponse);
-            break;
-            
-        case 'disconnect':
-            handleDisconnect(sendResponse);
-            break;
-            
-        default:
-            sendResponse({ error: 'Unknown action' });
-    }
-    
-    // Return true to indicate we will send a response asynchronously
-    return true;
-});
-
-async function handleGetStatus(sendResponse) {
-    try {
-        const result = await chrome.storage.local.get(['isConnected']);
-        sendResponse({ 
-            success: true, 
-            isConnected: result.isConnected || false 
-        });
-    } catch (error) {
-        console.error('Failed to get status:', error);
-        sendResponse({ error: error.message });
+    } else {
+        console.log('Lemo AI Assistant: chrome.runtime.onMessage not available');
     }
 }
 
-async function handleConnect(data, sendResponse) {
-    try {
-        // Here you would implement actual connection logic
-        console.log('Attempting to connect...', data);
-        
-        // Simulate connection process
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Update storage
-        await chrome.storage.local.set({ isConnected: true });
-        
-        // Send success response
-        sendResponse({ 
-            success: true, 
-            message: 'Connected successfully' 
+function setupTabListeners() {
+    // Clear badge when tab is closed or navigated
+    if (chrome.tabs && chrome.tabs.onRemoved) {
+        chrome.tabs.onRemoved.addListener((tabId) => {
+            if (chrome.action) {
+                try {
+                    chrome.action.setBadgeText({
+                        text: "",
+                        tabId: tabId
+                    });
+                } catch (error) {
+                    console.log('Lemo AI Assistant: Could not clear badge on tab removal:', error);
+                }
+            }
         });
-        
-        // Notify popup if open
-        notifyPopup('updateStatus', { 
-            status: 'connected', 
-            message: 'Connected' 
+    }
+
+    if (chrome.tabs && chrome.tabs.onUpdated) {
+        chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+            if (changeInfo.status === 'loading' && chrome.action) {
+                try {
+                    chrome.action.setBadgeText({
+                        text: "",
+                        tabId: tabId
+                    });
+                } catch (error) {
+                    console.log('Lemo AI Assistant: Could not clear badge on tab update:', error);
+                }
+            }
         });
-        
-    } catch (error) {
-        console.error('Connection failed:', error);
-        sendResponse({ error: error.message });
     }
 }
 
-async function handleDisconnect(sendResponse) {
-    try {
-        console.log('Disconnecting...');
-        
-        // Update storage
-        await chrome.storage.local.set({ isConnected: false });
-        
-        // Send success response
-        sendResponse({ 
-            success: true, 
-            message: 'Disconnected successfully' 
-        });
-        
-        // Notify popup if open
-        notifyPopup('updateStatus', { 
-            status: 'ready', 
-            message: 'Ready' 
-        });
-        
-    } catch (error) {
-        console.error('Disconnection failed:', error);
-        sendResponse({ error: error.message });
-    }
-}
+// Try to initialize immediately
+initializeExtension();
 
-function notifyPopup(action, data) {
-    // Try to send message to popup (will fail silently if popup is closed)
-    chrome.runtime.sendMessage({ action, ...data }).catch(() => {
-        // Popup is closed, ignore error
-    });
-}
-
-// Handle tab updates (useful for detecting page changes)
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url) {
-        console.log('Tab updated:', tab.url);
-        // Here you could implement page-specific logic
-    }
-});
-
-// Cleanup on extension suspension
-chrome.runtime.onSuspend.addListener(() => {
-    console.log('Extension suspending...');
-    // Perform cleanup if needed
-});
+// Also try after a delay in case Chrome APIs aren't ready yet
+setTimeout(initializeExtension, 1000);

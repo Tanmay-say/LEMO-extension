@@ -1,283 +1,395 @@
-// Lemo AI Chatbot functionality
-document.addEventListener('DOMContentLoaded', function() {
-    // DOM elements
-    const chatMessages = document.getElementById('chatMessages');
-    const messageInput = document.getElementById('messageInput');
-    const sendButton = document.getElementById('sendButton');
-    const typingIndicator = document.getElementById('typingIndicator');
-    const clearChatBtn = document.getElementById('clearChat');
-    const settingsBtn = document.getElementById('settingsBtn');
-    const charCounter = document.getElementById('charCounter');
-
-    // Chat state
-    let isTyping = false;
-    let messageHistory = [];
-
-    // Initialize chatbot
-    init();
-
-    function init() {
-        console.log('Lemo AI Chatbot initialized');
-        loadChatHistory();
-        attachEventListeners();
-        autoResize();
+// Lemo AI Chatbot functionality for EthOnline Hackathon
+class LemoChatbot {
+    constructor() {
+        this.chatMessages = document.getElementById('chatMessages');
+        this.messageInput = document.getElementById('messageInput');
+        this.sendButton = document.getElementById('sendButton');
+        this.clearChatButton = document.getElementById('clearChat');
+        this.charCounter = document.getElementById('charCounter');
+        this.typingIndicator = document.getElementById('typingIndicator');
+        
+        this.conversations = [];
+        this.responses = this.initializeResponses();
+        
+        this.init();
     }
 
-    function attachEventListeners() {
-        sendButton.addEventListener('click', handleSendMessage);
-        messageInput.addEventListener('keydown', handleKeyDown);
-        messageInput.addEventListener('input', handleInputChange);
-        clearChatBtn.addEventListener('click', handleClearChat);
-        settingsBtn.addEventListener('click', handleSettings);
+    init() {
+        this.loadStoredConversations();
+        this.bindEvents();
+        this.updateSendButton();
     }
 
-    function handleKeyDown(event) {
-        if (event.key === 'Enter') {
-            if (event.shiftKey) {
-                // Allow new line with Shift+Enter
-                return;
-            } else {
-                event.preventDefault();
-                handleSendMessage();
+    bindEvents() {
+        // Send message events
+        this.sendButton.addEventListener('click', () => this.sendMessage());
+        this.messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
             }
+        });
+
+        // Input validation and character counter
+        this.messageInput.addEventListener('input', () => {
+            this.autoResizeTextarea();
+            this.updateCharCounter();
+            this.updateSendButton();
+        });
+
+        // Clear chat
+        this.clearChatButton.addEventListener('click', () => this.clearChat());
+
+        // Auto-focus input
+        this.messageInput.focus();
+    }
+
+    autoResizeTextarea() {
+        this.messageInput.style.height = 'auto';
+        this.messageInput.style.height = this.messageInput.scrollHeight + 'px';
+    }
+
+    updateCharCounter() {
+        const length = this.messageInput.value.length;
+        this.charCounter.textContent = `${length}/500`;
+        
+        if (length > 400) {
+            this.charCounter.style.color = '#dc3545';
+        } else if (length > 300) {
+            this.charCounter.style.color = '#fd7e14';
+        } else {
+            this.charCounter.style.color = '#6c757d';
         }
     }
 
-    function handleInputChange() {
-        const text = messageInput.value;
-        const charCount = text.length;
-        
-        // Update character counter
-        charCounter.textContent = `${charCount}/500`;
-        
-        // Enable/disable send button
-        sendButton.disabled = text.trim().length === 0 || isTyping;
-        
-        // Auto-resize textarea
-        autoResize();
+    updateSendButton() {
+        const hasContent = this.messageInput.value.trim().length > 0;
+        this.sendButton.disabled = !hasContent;
     }
 
-    function autoResize() {
-        messageInput.style.height = 'auto';
-        messageInput.style.height = messageInput.scrollHeight + 'px';
-    }
-
-    async function handleSendMessage() {
-        const message = messageInput.value.trim();
-        if (!message || isTyping) return;
+    async sendMessage() {
+        const message = this.messageInput.value.trim();
+        if (!message) return;
 
         // Add user message
-        addMessage(message, 'user');
-        messageInput.value = '';
-        handleInputChange();
-        
-        // Store in history
-        messageHistory.push({ role: 'user', content: message, timestamp: Date.now() });
-        saveChatHistory();
+        this.addMessage(message, 'user');
+        this.messageInput.value = '';
+        this.messageInput.style.height = 'auto';
+        this.updateCharCounter();
+        this.updateSendButton();
 
-        // Show typing indicator and get AI response
-        await generateAIResponse(message);
+        // Show typing indicator
+        this.showTypingIndicator();
+
+        // Simulate thinking time
+        await this.delay(800 + Math.random() * 1200);
+
+        // Generate and add bot response
+        const response = this.generateResponse(message);
+        this.hideTypingIndicator();
+        this.addMessage(response, 'bot');
+
+        // Save conversation
+        this.saveConversations();
     }
 
-    function addMessage(content, type = 'bot') {
+    addMessage(text, sender) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}-message`;
+        messageDiv.className = `message ${sender}-message`;
         
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = `<span class="${type}-avatar">${type === 'bot' ? '🤖' : '👤'}</span>`;
+        const avatar = sender === 'bot' ? '🤖' : '👤';
+        const avatarClass = sender === 'bot' ? 'bot-avatar' : 'user-avatar';
         
-        const messageContent = document.createElement('div');
-        messageContent.className = 'message-content';
-        
-        const bubble = document.createElement('div');
-        bubble.className = 'message-bubble';
-        
-        const text = document.createElement('p');
-        text.textContent = content;
-        
-        const time = document.createElement('span');
-        time.className = 'message-time';
-        time.textContent = formatTime(new Date());
-        
-        bubble.appendChild(text);
-        bubble.appendChild(time);
-        messageContent.appendChild(bubble);
-        
-        messageDiv.appendChild(avatar);
-        messageDiv.appendChild(messageContent);
-        
-        chatMessages.appendChild(messageDiv);
-        scrollToBottom();
-        
-        return messageDiv;
-    }
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <span class="${avatarClass}">${avatar}</span>
+            </div>
+            <div class="message-content">
+                <div class="message-bubble">
+                    <p>${this.escapeHtml(text)}</p>
+                    <span class="message-time">${this.getCurrentTime()}</span>
+                </div>
+            </div>
+        `;
 
-    function showTypingIndicator() {
-        typingIndicator.style.display = 'block';
-        scrollToBottom();
-        isTyping = true;
-        sendButton.disabled = true;
-    }
+        this.chatMessages.appendChild(messageDiv);
+        this.scrollToBottom();
 
-    function hideTypingIndicator() {
-        typingIndicator.style.display = 'none';
-        isTyping = false;
-        sendButton.disabled = messageInput.value.trim().length === 0;
-    }
-
-    async function generateAIResponse(userMessage) {
-        showTypingIndicator();
-        
-        try {
-            // Simulate AI thinking time
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-            
-            const response = getAIResponse(userMessage);
-            
-            hideTypingIndicator();
-            addMessage(response, 'bot');
-            
-            // Store in history
-            messageHistory.push({ role: 'bot', content: response, timestamp: Date.now() });
-            saveChatHistory();
-            
-        } catch (error) {
-            console.error('AI response error:', error);
-            hideTypingIndicator();
-            addMessage('Sorry, I encountered an error. Please try again.', 'bot');
-        }
-    }
-
-    function getAIResponse(message) {
-        const lowerMessage = message.toLowerCase();
-        
-        // Blockchain/DeFi specific responses
-        if (lowerMessage.includes('wallet') || lowerMessage.includes('connect')) {
-            return "I can help you with wallet connections! For Web3 development, you'll typically use libraries like Web3.js or Ethers.js. Would you like me to explain how to implement wallet connectivity?";
-        }
-        
-        if (lowerMessage.includes('smart contract') || lowerMessage.includes('solidity')) {
-            return "Smart contracts are self-executing contracts with terms directly written into code. I can help you with Solidity development, deployment strategies, or contract security best practices. What specific aspect interests you?";
-        }
-        
-        if (lowerMessage.includes('defi') || lowerMessage.includes('decentralized finance')) {
-            return "DeFi is revolutionizing finance! I can discuss AMMs, yield farming, liquidity pools, governance tokens, or protocol mechanics. What DeFi concept would you like to explore?";
-        }
-        
-        if (lowerMessage.includes('nft') || lowerMessage.includes('token')) {
-            return "NFTs and tokens are core to the Web3 ecosystem. I can explain ERC standards (ERC-20, ERC-721, ERC-1155), minting processes, or marketplace integration. What would you like to learn?";
-        }
-        
-        if (lowerMessage.includes('ethereum') || lowerMessage.includes('eth')) {
-            return "Ethereum is the leading smart contract platform! I can help with gas optimization, Layer 2 solutions, EIP standards, or development frameworks like Hardhat and Truffle. What's your focus area?";
-        }
-        
-        if (lowerMessage.includes('hackathon') || lowerMessage.includes('ethonline')) {
-            return "Exciting! EthOnline is a fantastic hackathon. I can help you brainstorm ideas, suggest tech stacks, provide development tips, or review your project architecture. How can I assist with your submission?";
-        }
-        
-        if (lowerMessage.includes('gas') || lowerMessage.includes('fee')) {
-            return "Gas fees are crucial in Ethereum development. I can explain gas optimization techniques, discuss Layer 2 solutions like Polygon or Arbitrum, or help with cost-effective contract design. What specific gas-related challenge are you facing?";
-        }
-        
-        if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-            return "Hello! I'm here to help with your blockchain development journey. Whether you need help with smart contracts, DeFi protocols, NFTs, or hackathon strategies, I'm ready to assist!";
-        }
-        
-        if (lowerMessage.includes('help') || lowerMessage.includes('what can you do')) {
-            return "I'm your blockchain development assistant! I can help with:\n\n• Smart contract development & security\n• DeFi protocols & mechanisms\n• NFT implementation & standards\n• Web3 frontend integration\n• Gas optimization strategies\n• Hackathon project guidance\n\nWhat would you like to explore?";
-        }
-        
-        // Default responses
-        const responses = [
-            "That's an interesting question! Could you provide more context about your blockchain project?",
-            "I'd love to help! Can you tell me more about what you're trying to build?",
-            "Great question! Are you working on a specific Web3 or DeFi project?",
-            "I'm here to assist with your blockchain development. What specific challenge are you facing?",
-            "Interesting! Let me know more details about your use case and I can provide better guidance."
-        ];
-        
-        return responses[Math.floor(Math.random() * responses.length)];
-    }
-
-    function handleClearChat() {
-        if (confirm('Are you sure you want to clear the chat history?')) {
-            chatMessages.innerHTML = '';
-            messageHistory = [];
-            saveChatHistory();
-            
-            // Add welcome message back
-            setTimeout(() => {
-                addMessage("Hello! I'm Lemo AI, your blockchain assistant for the EthOnline hackathon. How can I help you today?", 'bot');
-            }, 100);
-        }
-    }
-
-    function handleSettings() {
-        const settings = {
-            theme: 'default',
-            autoScroll: true,
-            notifications: true
-        };
-        
-        addMessage("Settings:\n• Theme: Default\n• Auto-scroll: Enabled\n• Notifications: Enabled\n\nSettings panel coming soon in the next update!", 'bot');
-    }
-
-    function scrollToBottom() {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function formatTime(date) {
-        return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
+        // Store in conversations
+        this.conversations.push({
+            text: text,
+            sender: sender,
+            timestamp: new Date().toISOString()
         });
     }
 
-    async function saveChatHistory() {
+    showTypingIndicator() {
+        this.typingIndicator.style.display = 'block';
+        this.scrollToBottom();
+    }
+
+    hideTypingIndicator() {
+        this.typingIndicator.style.display = 'none';
+    }
+
+    scrollToBottom() {
+        setTimeout(() => {
+            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        }, 100);
+    }
+
+    generateResponse(userMessage) {
+        const message = userMessage.toLowerCase();
+        
+        // Check for specific patterns and keywords
+        for (const [pattern, responses] of Object.entries(this.responses)) {
+            if (this.matchesPattern(message, pattern)) {
+                return this.getRandomResponse(responses);
+            }
+        }
+
+        // Default responses if no pattern matches
+        const defaultResponses = [
+            "That's interesting! Can you tell me more about that?",
+            "I understand. How can I help you with this?",
+            "Thanks for sharing! What would you like to do next?",
+            "I see. Is there anything specific you'd like assistance with?",
+            "That's a great question! Let me think about how I can help.",
+            "I appreciate you reaching out! What can I do for you today?"
+        ];
+
+        return this.getRandomResponse(defaultResponses);
+    }
+
+    matchesPattern(message, pattern) {
+        const keywords = pattern.split('|');
+        return keywords.some(keyword => message.includes(keyword.toLowerCase()));
+    }
+
+    getRandomResponse(responses) {
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+    initializeResponses() {
+        return {
+            'hello|hi|hey|good morning|good afternoon|good evening': [
+                "Hello! Great to see you today! I'm Lemo AI, ready to help with your EthOnline project!",
+                "Hi there! I'm excited to help you with blockchain development. What's on your mind?",
+                "Hey! Welcome to Lemo AI! How can I assist with your hackathon project today?",
+                "Good to see you! Ready to build something amazing for EthOnline?",
+                "Hello! Let's tackle some blockchain challenges together!"
+            ],
+            'how are you|how do you do|what\'s up': [
+                "I'm doing great! Ready to help with your EthOnline project. How are you progressing?",
+                "I'm fantastic and ready to assist with blockchain development! How are you doing?",
+                "I'm doing well! Excited to help you build the next big Web3 project.",
+                "I'm great! What blockchain challenge can we solve today?",
+                "Doing wonderful! How can I help make your hackathon project successful?"
+            ],
+            'what can you do|what are your capabilities|help me|what do you offer': [
+                "I'm your blockchain development assistant! I can help with smart contracts, DeFi protocols, Web3 integration, gas optimization, and hackathon strategy. What specific area interests you?",
+                "I'm here to assist with Solidity development, blockchain architecture, tokenomics design, NFT implementation, and more! What would you like to work on?",
+                "Great question! I specialize in Ethereum development, Layer 2 solutions, DeFi mechanics, smart contract security, and hackathon best practices. What shall we explore?",
+                "I'm designed to help with all things blockchain! From smart contracts to frontend integration, I've got you covered. What's your focus area?"
+            ],
+            'smart contract|solidity|ethereum|blockchain': [
+                "Smart contracts are the backbone of Web3! I can help with Solidity development, contract architecture, security best practices, and deployment strategies. What's your specific need?",
+                "Ethereum development is exciting! Are you working on DeFi, NFTs, DAOs, or something else? I can guide you through the process.",
+                "Blockchain technology offers endless possibilities! Let's discuss your project requirements and build something amazing together.",
+                "Solidity is a powerful language! I can help with contract logic, optimization techniques, and integration patterns. What are you building?"
+            ],
+            'defi|decentralized finance|yield|liquidity|amm': [
+                "DeFi is revolutionizing finance! I can explain AMMs, yield farming strategies, liquidity provision, governance mechanisms, and protocol design. What interests you most?",
+                "Decentralized finance opens up incredible opportunities! Whether it's building AMMs, yield protocols, or lending platforms, I'm here to help.",
+                "DeFi protocols are complex but rewarding to build! Let's discuss tokenomics, liquidity incentives, and protocol sustainability.",
+                "The DeFi space is rapidly evolving! I can help with protocol mechanics, risk management, and user experience design."
+            ],
+            'nft|token|erc721|erc1155|opensea': [
+                "NFTs and tokens are core to Web3! I can help with ERC standards, metadata handling, marketplace integration, and royalty mechanisms. What's your project focus?",
+                "Token standards like ERC-20, ERC-721, and ERC-1155 each serve different purposes. What type of token are you planning to create?",
+                "NFT development involves smart contracts, metadata management, and marketplace considerations. I can guide you through the entire process!",
+                "Whether it's fungible or non-fungible tokens, I can help with implementation, optimization, and best practices."
+            ],
+            'gas|optimization|layer 2|polygon|arbitrum': [
+                "Gas optimization is crucial for user adoption! I can help with efficient contract design, batch operations, proxy patterns, and Layer 2 deployment strategies.",
+                "Layer 2 solutions like Polygon and Arbitrum offer great scalability! Let's discuss deployment strategies and cross-chain considerations.",
+                "Gas costs can make or break a project! I know various optimization techniques from storage packing to function modifiers.",
+                "Scaling solutions are essential for Web3 success! Whether it's rollups, sidechains, or state channels, I can help you choose the right approach."
+            ],
+            'hackathon|ethonline|project|idea|build': [
+                "EthOnline is an amazing opportunity! I can help you brainstorm ideas, validate concepts, choose the right tech stack, and plan your development timeline.",
+                "Hackathon success comes from good planning and execution! What's your project idea? Let's refine it and create a winning strategy.",
+                "Building for hackathons requires focus and speed! I can help you scope your project realistically and suggest quick implementation approaches.",
+                "EthOnline projects should solve real problems! Let's discuss current market needs and how your solution can stand out."
+            ],
+            'web3|frontend|integration|wallet|metamask': [
+                "Web3 frontend development is essential for user adoption! I can help with wallet integration, transaction handling, and user experience design.",
+                "Connecting smart contracts to frontends requires careful consideration. Let's discuss Web3 libraries, wallet connectivity, and error handling.",
+                "MetaMask and other wallet integrations can be tricky! I know the best practices for smooth user experiences and transaction flows.",
+                "Web3 UX is still evolving! I can help you create intuitive interfaces that make blockchain interactions feel natural."
+            ],
+            'thanks|thank you|appreciate': [
+                "You're very welcome! Happy to help you succeed in EthOnline!",
+                "My pleasure! Building the future of Web3 together is what I'm here for.",
+                "You're welcome! Feel free to ask anything about blockchain development.",
+                "Glad I could help! Don't hesitate to reach out with more questions.",
+                "Anytime! Let's keep building amazing Web3 projects!"
+            ],
+            'bye|goodbye|see you|farewell': [
+                "Goodbye! Best of luck with your EthOnline project! 🚀",
+                "See you later! Keep building awesome Web3 solutions!",
+                "Take care! I'll be here whenever you need blockchain development help.",
+                "Farewell! Hope to help you again soon with your Web3 journey!",
+                "Bye for now! Wishing you success in the hackathon! 🏆"
+            ]
+        };
+    }
+
+    clearChat() {
+        // Remove all messages except the welcome message
+        const messages = this.chatMessages.querySelectorAll('.message');
+        messages.forEach((message, index) => {
+            if (index > 0) { // Keep the first welcome message
+                message.remove();
+            }
+        });
+
+        // Clear stored conversations except welcome
+        this.conversations = this.conversations.slice(0, 1);
+        this.saveConversations();
+
+        // Focus back on input
+        this.messageInput.focus();
+    }
+
+    getCurrentTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        const isToday = this.isToday(now);
+        if (isToday) {
+            return timeString;
+        } else {
+            return `${now.toLocaleDateString()} ${timeString}`;
+        }
+    }
+
+    isToday(date) {
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Storage functionality
+    saveConversations() {
         try {
-            await chrome.storage.local.set({ 
-                chatHistory: messageHistory,
-                lastUpdated: Date.now()
+            chrome.storage.local.set({
+                'lemoChat_conversations': this.conversations
             });
         } catch (error) {
-            console.error('Failed to save chat history:', error);
+            // Fallback to localStorage if chrome.storage is not available
+            localStorage.setItem('lemoChat_conversations', JSON.stringify(this.conversations));
         }
     }
 
-    async function loadChatHistory() {
+    loadStoredConversations() {
         try {
-            const result = await chrome.storage.local.get(['chatHistory']);
-            if (result.chatHistory && result.chatHistory.length > 1) {
-                messageHistory = result.chatHistory;
-                
-                // Clear existing messages except welcome
-                const messages = chatMessages.querySelectorAll('.message');
-                if (messages.length > 1) {
-                    for (let i = 1; i < messages.length; i++) {
-                        messages[i].remove();
-                    }
+            chrome.storage.local.get(['lemoChat_conversations'], (result) => {
+                if (result.lemoChat_conversations && result.lemoChat_conversations.length > 1) {
+                    this.restoreConversations(result.lemoChat_conversations);
                 }
-                
-                // Restore chat history
-                messageHistory.forEach(msg => {
-                    if (msg.role !== 'system') {
-                        addMessage(msg.content, msg.role === 'user' ? 'user' : 'bot');
-                    }
-                });
-            }
+            });
         } catch (error) {
-            console.error('Failed to load chat history:', error);
+            // Fallback to localStorage
+            const stored = localStorage.getItem('lemoChat_conversations');
+            if (stored) {
+                const conversations = JSON.parse(stored);
+                if (conversations.length > 1) {
+                    this.restoreConversations(conversations);
+                }
+            }
         }
     }
 
-    // Handle messages from background script
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'newMessage') {
-            addMessage(request.content, 'bot');
+    restoreConversations(conversations) {
+        // Clear existing messages first (except welcome)
+        const existingMessages = this.chatMessages.querySelectorAll('.message');
+        existingMessages.forEach((message, index) => {
+            if (index > 0) {
+                message.remove();
+            }
+        });
+
+        // Restore conversations (skip the first welcome message)
+        conversations.slice(1).forEach(conv => {
+            this.addMessageFromStorage(conv.text, conv.sender, conv.timestamp);
+        });
+
+        this.conversations = conversations;
+    }
+
+    addMessageFromStorage(text, sender, timestamp) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        
+        const avatar = sender === 'bot' ? '🤖' : '👤';
+        const avatarClass = sender === 'bot' ? 'bot-avatar' : 'user-avatar';
+        const timeDisplay = this.formatStoredTime(timestamp);
+        
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <span class="${avatarClass}">${avatar}</span>
+            </div>
+            <div class="message-content">
+                <div class="message-bubble">
+                    <p>${this.escapeHtml(text)}</p>
+                    <span class="message-time">${timeDisplay}</span>
+                </div>
+            </div>
+        `;
+
+        this.chatMessages.appendChild(messageDiv);
+    }
+
+    formatStoredTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        
+        if (this.isToday(date)) {
+            return date.toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        } else {
+            return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            })}`;
         }
-        sendResponse({ success: true });
-    });
+    }
+}
+
+// Initialize the chatbot when the DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new LemoChatbot();
+});
+
+// Handle extension popup resizing
+window.addEventListener('resize', () => {
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 });
