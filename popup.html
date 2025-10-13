@@ -3,34 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lemo Extension</title>
+    <title>Lemo AI Assistant</title>
     <link rel="stylesheet/less" type="text/css" href="styles.less">
     <script src="https://cdn.jsdelivr.net/npm/less@4.2.0/dist/less.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1 class="title">Lemo Extension</h1>
-            <p class="subtitle">EthOnline Hackathon</p>
-        </header>
-        
-        <main class="main-content">
-            <div class="status-section">
-                <div class="status-indicator">
-                    <span class="status-dot"></span>
-                    <span class="status-text">Ready</span>
+    <div class="chat-container">
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="header-avatar">
+                <div class="avatar-circle">
+                    <span class="avatar-icon">🤖</span>
+                </div>
+                <div class="status-indicator"></div>
+            </div>
+            <div class="header-info">
+                <h3 class="assistant-name">Lemo AI</h3>
+                <p class="assistant-status">Online - EthOnline Hackathon</p>
+            </div>
+            <div class="header-actions">
+                <button class="action-btn" id="clearChat" title="Clear chat">
+                    <span class="clear-icon">🗑️</span>
+                </button>
+                <button class="action-btn" id="settingsBtn" title="Settings">
+                    <span class="settings-icon">⚙️</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div class="chat-messages" id="chatMessages">
+            <!-- Welcome message -->
+            <div class="message bot-message">
+                <div class="message-avatar">
+                    <span class="bot-avatar">🤖</span>
+                </div>
+                <div class="message-content">
+                    <div class="message-bubble">
+                        <p>Hello! I'm Lemo AI, your blockchain assistant for the EthOnline hackathon. How can I help you today?</p>
+                        <span class="message-time">Just now</span>
+                    </div>
                 </div>
             </div>
-            
-            <div class="action-section">
-                <button id="connectBtn" class="primary-btn">Connect Wallet</button>
-                <button id="settingsBtn" class="secondary-btn">Settings</button>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+            <div class="message bot-message">
+                <div class="message-avatar">
+                    <span class="bot-avatar">🤖</span>
+                </div>
+                <div class="message-content">
+                    <div class="typing-bubble">
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </main>
-        
-        <footer class="footer">
-            <p class="version">v1.0.0</p>
-        </footer>
+        </div>
+
+        <!-- Input Area -->
+        <div class="chat-input">
+            <div class="input-container">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Ask me anything about blockchain, DeFi, or smart contracts..." 
+                    rows="1"
+                    maxlength="500"
+                ></textarea>
+                <button id="sendButton" class="send-button" disabled>
+                    <span class="send-icon">➤</span>
+                </button>
+            </div>
+            <div class="input-footer">
+                <span class="char-counter" id="charCounter">0/500</span>
+                <span class="powered-by">Powered by Lemo AI • v1.0.0</span>
+            </div>
+        </div>
     </div>
     
     <script src="popup.js"></script>
