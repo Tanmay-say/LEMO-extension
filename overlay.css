@@ -1,19 +1,20 @@
-/* Lemo AI Assistant Overlay Styles - Matching Lemo AI Assistant */
+/* Lemo AI Assistant Overlay Styles - Matching Demo Design */
 .lemo-chat-overlay {
     position: fixed !important;
     top: 0 !important;
     right: 0 !important;
-    width: 400px !important; /* Fixed width like Lemo */
+    width: 400px !important;
     height: 100vh !important;
-    z-index: 2147483647 !important; /* Maximum z-index */
+    z-index: 2147483647 !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
-    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15) !important;
-    transition: transform 0.2s ease-in-out !important;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     transform: translateX(0) !important;
     background: #ffffff !important;
     border: none !important;
     border-left: 1px solid #e5e7eb !important;
     outline: none !important;
+    will-change: transform !important;
 }
 
 .lemo-chat-overlay.minimized {
@@ -24,30 +25,31 @@
     transform: translateX(100%) !important;
 }
 
-/* Toggle button for minimized state - Comet style */
+/* Toggle button for minimized state */
 .lemo-toggle-btn {
     position: fixed !important;
-    top: 50% !important;
-    right: 15px !important;
-    width: 40px !important;
-    height: 40px !important;
-    border-radius: 8px !important;
-    background: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
-    color: #6b7280 !important;
-    font-size: 18px !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    color: white !important;
+    font-size: 24px !important;
     cursor: pointer !important;
     z-index: 2147483647 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-    transition: all 0.2s ease !important;
-    transform: translateY(-50%) !important;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transform: scale(1) !important;
     display: none !important;
+    will-change: transform !important;
 }
 
 .lemo-toggle-btn:hover {
-    transform: translateY(-50%) scale(1.05) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    background: #f9fafb !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+    filter: brightness(1.1) !important;
 }
 
 .lemo-toggle-btn.visible {

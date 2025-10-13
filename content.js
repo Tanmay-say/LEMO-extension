@@ -24,8 +24,8 @@
         chatOverlay = document.createElement('div');
         chatOverlay.className = 'lemo-chat-overlay hidden';
         chatOverlay.innerHTML = `
-            <button class="lemo-minimize-btn" title="Minimize">−</button>
-            <button class="lemo-close-btn" title="Close">×</button>
+            <button class="lemo-minimize-btn" title="Close">×</button>
+            <button class="lemo-close-btn" title="Minimize">−</button>
             <div class="lemo-chat-content"></div>
         `;
 
@@ -35,12 +35,12 @@
 
         minimizeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            minimizeOverlay();
+            hideOverlay(); // Close button functionality - completely hide overlay
         });
 
         closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            hideOverlay();
+            minimizeOverlay(); // Minimize button functionality - just minimize
         });
 
         document.body.appendChild(chatOverlay);
@@ -49,7 +49,7 @@
     function createToggleButton() {
         toggleButton = document.createElement('button');
         toggleButton.className = 'lemo-toggle-btn';
-        toggleButton.innerHTML = '💬';
+        toggleButton.innerHTML = '🤖';
         toggleButton.title = 'Open Lemo AI Assistant';
 
         toggleButton.addEventListener('click', () => {
@@ -166,12 +166,12 @@
             }
 
             .lemo-chat-overlay .chat-header {
-                background: #ffffff;
-                color: #1f2937;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
                 padding: 16px 20px;
                 display: flex;
                 align-items: center;
-                border-bottom: 1px solid #e5e7eb;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
                 position: relative;
                 flex-shrink: 0;
             }
@@ -1021,90 +1021,58 @@
         });
     }
 
-    // Cleanup function with improved error handling
+    // Simple cleanup function
     function cleanupPageAdjustments() {
         try {
-            // Restore body margin
-            if (document.body) {
-                document.body.style.marginRight = '';
-                // Clean up transition if we added it
-                if (document.body.style.transition && document.body.style.transition.includes('margin-right')) {
-                    document.body.style.transition = document.body.style.transition
-                        .replace(/margin-right[^,]*,?\s*/g, '').trim().replace(/,$/, '') || '';
-                }
+            // Remove overlay if it exists
+            const overlay = document.querySelector('.lemo-chat-overlay');
+            if (overlay) {
+                overlay.remove();
             }
             
-            // Restore main content containers
-            const mainSelectors = [
-                'main', '[role="main"]', '.main-content', '#main', '#content',
-                '.container', '.wrapper', '.page-content', 'article', '.app'
-            ];
-            
-            mainSelectors.forEach(selector => {
-                try {
-                    const elements = document.querySelectorAll(selector);
-                    elements.forEach(element => {
-                        element.style.marginRight = '';
-                        if (element.style.transition && element.style.transition.includes('margin-right')) {
-                            element.style.transition = element.style.transition
-                                .replace(/margin-right[^,]*,?\s*/g, '').trim().replace(/,$/, '') || '';
-                        }
-                    });
-                } catch (e) {
-                    console.warn('Error cleaning up main selector:', selector, e);
-                }
-            });
-            
-            // Restore all adjusted fixed elements
-            const adjustedElements = document.querySelectorAll('[data-lemo-adjusted]');
-            adjustedElements.forEach(element => {
-                try {
-                    const originalRight = element.getAttribute('data-lemo-original-right');
-                    element.style.right = originalRight === 'auto' ? 'auto' : (originalRight || '');
-                    element.removeAttribute('data-lemo-adjusted');
-                    element.removeAttribute('data-lemo-original-right');
-                    // Clean up transition
-                    if (element.style.transition && element.style.transition.includes('right')) {
-                        element.style.transition = element.style.transition
-                            .replace(/right[^,]*,?\s*/g, '').trim().replace(/,$/, '') || '';
-                    }
-                } catch (e) {
-                    console.warn('Error cleaning up adjusted element:', e);
-                }
-            });
-            // Disconnect mutation observer
-            if (mutationObserver) {
-                mutationObserver.disconnect();
-                mutationObserver = null;
+            // Remove toggle button if it exists
+            const toggle = document.querySelector('.lemo-toggle-btn');
+            if (toggle) {
+                toggle.remove();
             }
-            
-            // Clear selector cache
-            clearSelectorCache();
         } catch (error) {
             console.warn('Error during cleanup:', error);
         }
     }
 
-    // Initialize when DOM is ready with retry mechanism
+    // Optimized initialization with duplicate prevention
     function safeInitialize() {
         try {
+            // Prevent multiple initializations
+            if (document.querySelector('.lemo-chat-overlay')) {
+                console.log('Lemo AI: Already initialized');
+                return;
+            }
+            
             initializeChatbot();
-            setupMutationObserver();
             console.log('Lemo AI: Initialized successfully');
         } catch (error) {
             console.log('Lemo AI: Initialization error, retrying...', error);
-            setTimeout(safeInitialize, 1000);
+            setTimeout(safeInitialize, 1500);
+        }
+    }
+
+    // Enhanced DOM ready detection for better performance
+    function initWhenReady() {
+        if (document.body && document.head) {
+            safeInitialize();
+        } else {
+            setTimeout(initWhenReady, 100);
         }
     }
 
     // Cleanup on page unload
-    window.addEventListener('beforeunload', cleanupPageAdjustments);
-    window.addEventListener('unload', cleanupPageAdjustments);
-
+    window.addEventListener('beforeunload', cleanupPageAdjustments, { passive: true });
+    
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', safeInitialize);
+        document.addEventListener('DOMContentLoaded', initWhenReady, { once: true, passive: true });
     } else {
-        safeInitialize();
+        requestIdleCallback ? requestIdleCallback(initWhenReady) : setTimeout(initWhenReady, 0);
     }
 
 })();
