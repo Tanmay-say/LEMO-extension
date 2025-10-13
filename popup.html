@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lemo Extension</title>
+    <link rel="stylesheet/less" type="text/css" href="styles.less">
+    <script src="https://cdn.jsdelivr.net/npm/less@4.2.0/dist/less.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="title">Lemo Extension</h1>
+            <p class="subtitle">EthOnline Hackathon</p>
+        </header>
+        
+        <main class="main-content">
+            <div class="status-section">
+                <div class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Ready</span>
+                </div>
+            </div>
+            
+            <div class="action-section">
+                <button id="connectBtn" class="primary-btn">Connect Wallet</button>
+                <button id="settingsBtn" class="secondary-btn">Settings</button>
+            </div>
+        </main>
+        
+        <footer class="footer">
+            <p class="version">v1.0.0</p>
+        </footer>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
