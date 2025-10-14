@@ -15,8 +15,11 @@
         createToggleButton();
         loadChatbotContent();
         
-        // Set initial state
-        hideOverlay();
+        // Set initial state - completely hidden
+        chatOverlay.style.display = 'none';
+        toggleButton.style.display = 'none';
+        isVisible = false;
+        isMinimized = false;
     }
 
     function createOverlay() {
@@ -55,7 +58,7 @@
         toggleButton.addEventListener('click', () => {
             if (isMinimized) {
                 maximizeOverlay();
-            } else {
+            } else if (!isVisible) {
                 showOverlay();
             }
         });
@@ -888,9 +891,10 @@
     function showOverlay() {
         if (!chatOverlay) return;
         
-        chatOverlay.classList.remove('hidden');
+        chatOverlay.style.display = 'block';
+        chatOverlay.classList.remove('hidden', 'minimized');
         chatOverlay.classList.add('entering');
-        toggleButton.classList.remove('visible');
+        toggleButton.style.display = 'none';
         isVisible = true;
         isMinimized = false;
 
@@ -923,9 +927,9 @@
     function hideOverlay() {
         if (!chatOverlay) return;
         
-        chatOverlay.classList.add('hidden');
+        chatOverlay.style.display = 'none';
         chatOverlay.classList.remove('minimized');
-        toggleButton.classList.add('visible');
+        toggleButton.style.display = 'none';
         isVisible = false;
         isMinimized = false;
 
@@ -948,9 +952,11 @@
     function minimizeOverlay() {
         if (!chatOverlay) return;
         
+        chatOverlay.style.display = 'none';
         chatOverlay.classList.add('minimized');
-        toggleButton.classList.add('visible');
+        toggleButton.style.display = 'block';
         isMinimized = true;
+        isVisible = false;
 
         // Restore page content when minimized
         adjustPageContent(false);
@@ -971,9 +977,11 @@
     function maximizeOverlay() {
         if (!chatOverlay) return;
         
-        chatOverlay.classList.remove('minimized');
-        toggleButton.classList.remove('visible');
+        chatOverlay.style.display = 'block';
+        chatOverlay.classList.remove('minimized', 'hidden');
+        toggleButton.style.display = 'none';
         isMinimized = false;
+        isVisible = true;
 
         // Adjust page content when maximized
         adjustPageContent(true);
@@ -1006,10 +1014,13 @@
                         initializeChatbot();
                         setTimeout(() => showOverlay(), 100);
                     } else if (isVisible && !isMinimized) {
-                        hideOverlay();
+                        // If visible and not minimized, minimize it
+                        minimizeOverlay();
                     } else if (isMinimized) {
+                        // If minimized, maximize it
                         maximizeOverlay();
                     } else {
+                        // If hidden, show it
                         showOverlay();
                     }
                     sendResponse({success: true});

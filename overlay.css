@@ -18,25 +18,25 @@
 }
 
 .lemo-chat-overlay.minimized {
-    transform: translateX(calc(100% - 50px)) !important;
+    display: none !important;
 }
 
 .lemo-chat-overlay.hidden {
-    transform: translateX(100%) !important;
+    display: none !important;
 }
 
-/* Toggle button for minimized state */
+/* Toggle button for minimized state - positioned at bottom */
 .lemo-toggle-btn {
     position: fixed !important;
-    top: 20px !important;
+    bottom: 20px !important;
     right: 20px !important;
-    width: 50px !important;
-    height: 50px !important;
-    border-radius: 12px !important;
+    width: 56px !important;
+    height: 56px !important;
+    border-radius: 16px !important;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     border: none !important;
     color: white !important;
-    font-size: 24px !important;
+    font-size: 28px !important;
     cursor: pointer !important;
     z-index: 2147483647 !important;
     box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3) !important;
@@ -52,7 +52,7 @@
     filter: brightness(1.1) !important;
 }
 
-.lemo-toggle-btn.visible {
+.lemo-toggle-btn:not([style*="display: none"]) {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -155,9 +155,11 @@
     }
     
     .lemo-toggle-btn {
-        width: 50px !important;
-        height: 50px !important;
-        right: 10px !important;
-        border-radius: 12px !important;
+        width: 52px !important;
+        height: 52px !important;
+        right: 15px !important;
+        bottom: 15px !important;
+        border-radius: 14px !important;
+        font-size: 26px !important;
     }
 }
