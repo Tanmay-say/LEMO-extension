@@ -1,0 +1,73 @@
+import React, { useState, useEffect } from 'react';
+
+const AssistantInput = () => {
+  const [currentTabTitle, setCurrentTabTitle] = useState('New Tab');
+  const [inputValue, setInputValue] = useState('');
+
+  useEffect(() => {
+    // Get current tab information
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (tabs && tabs[0]) {
+          setCurrentTabTitle(tabs[0].title || 'New Tab');
+        }
+      });
+    }
+  }, []);
+
+  const handleSend = () => {
+    if (inputValue.trim()) {
+      // Handle send action
+      console.log('Sending message:', inputValue);
+      setInputValue('');
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="assistant-input-bar">
+      <span className="tab-indicator">
+        <svg className="tab-icon" viewBox="0 0 24 24" width="24" height="24">
+          <path fill="currentColor" d="M13 21.998h8v-2h-8v2zm-2 0v-2H3v2h8zm2-3h8v-2h-8v2zm-2 0v-2H3v2h8zm2-3h8v-2h-8v2zm-2 0v-2H3v2h8zm2-3h8v-2h-8v2zm-2 0v-2H3v2h8zm2-3h8V7.998h-8v2zm-2 0V7.998H3v2h8zm2-3h8V5.998h-8v2zm-2 0V5.998H3v2h8z"/>
+        </svg>
+        <span className="tab-title" id="currentTabTitle">{currentTabTitle}</span>
+      </span>
+      <input 
+        className="input-area" 
+        type="text" 
+        placeholder="Ask anything…" 
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyPress={handleKeyPress}
+      />
+      <button className="icon-btn" title="Attach">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+        </svg>
+      </button>
+      <button className="icon-btn" title="Capture">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path fill="currentColor" d="M12 15.5c1.93 0 3.5-1.57 3.5-3.5s-1.57-3.5-3.5-3.5-3.5 1.57-3.5 3.5 1.57 3.5 3.5 3.5m0-7c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5m0 12.5c3.59 0 6.5-2.91 6.5-6.5s-2.91-6.5-6.5-6.5-6.5 2.91-6.5 6.5 2.91 6.5 6.5 6.5m0-11c2.49 0 4.5 2.01 4.5 4.5s-2.01 4.5-4.5 4.5-4.5-2.01-4.5-4.5 2.01-4.5 4.5-4.5z"/>
+        </svg>
+      </button>
+      <button className="icon-btn" title="Voice">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+      </button>
+      <button className="icon-btn" title="Send" onClick={handleSend}>
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+  );
+};
+
+export default AssistantInput;

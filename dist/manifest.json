@@ -14,22 +14,37 @@
   ],
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["src/content/index.jsx"],
-      "run_at": "document_end"
+      "js": [
+        "assets/index.jsx-CZaINXdg.js"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "run_at": "document_end",
+      "css": [
+        "assets/index-EhUZh_jC.css"
+      ]
     }
   ],
   "action": {
     "default_title": "Toggle Lemo AI Assistant"
   },
   "background": {
-    "service_worker": "src/background/index.js",
+    "service_worker": "service-worker-loader.js",
     "type": "module"
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/content/*"],
-      "matches": ["http://*/*", "https://*/*"]
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "resources": [
+        "src/content/*",
+        "assets/index.jsx-CZaINXdg.js"
+      ],
+      "use_dynamic_url": false
     }
   ]
 }
