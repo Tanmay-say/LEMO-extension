@@ -86,13 +86,17 @@ const ChatWindow = () => {
           >
             {/* Avatar */}
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
                 message.type === 'bot'
-                  ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
-                  : 'bg-gradient-to-br from-blue-400 to-cyan-400 text-white'
+                  ? 'bg-gradient-to-br from-orange-500 to-orange-600'
+                  : 'bg-gradient-to-br from-blue-400 to-cyan-400'
               }`}
             >
-              {message.type === 'bot' ? '🤖' : '👤'}
+              {message.type === 'bot' ? (
+                <img src="/logo.png" alt="Lemo" className="w-6 h-6 rounded-full object-cover" />
+              ) : (
+                '👤'
+              )}
             </div>
 
             {/* Message Content */}
@@ -137,8 +141,8 @@ const ChatWindow = () => {
         {/* Typing Indicator */}
         {isTyping && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white flex items-center justify-center">
-              🤖
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center overflow-hidden">
+              <img src="/logo.png" alt="Lemo" className="w-6 h-6 rounded-full object-cover" />
             </div>
             <div className="bg-white border border-orange-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
               <div className="flex gap-1">

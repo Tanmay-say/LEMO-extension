@@ -74,23 +74,20 @@ async function handleWalletOperation(request, sender, sendResponse) {
     // Determine target tab: prefer provided tabId from popup
     let tabId = request.tabId;
     if (!tabId) {
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      tabId = activeTab?.id;
+      // If no tabId provided (popup context), try to get the active tab
+      try {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = activeTab?.id;
+      } catch (tabError) {
+        console.log('Could not query tabs:', tabError);
+        // If we can't query tabs, try to use sender.tab.id if available
+        tabId = sender.tab?.id;
+      }
     }
     
     if (!tabId) {
-      sendResponse({ success: false, error: 'No active tab found' });
+      sendResponse({ success: false, error: 'No active tab found. Please open the extension on a web page.' });
       return;
-    }
-
-    // Inject wallet bridge if not already injected
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId },
-        files: ['src/content/walletBridge.js']
-      });
-    } catch (injectionError) {
-      console.log('Wallet bridge already injected or injection failed:', injectionError);
     }
 
     // Send message to content script to relay to page context

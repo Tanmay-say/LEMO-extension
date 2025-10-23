@@ -13,6 +13,20 @@ const WalletConnect = () => {
 
   const checkConnection = async () => {
     try {
+      // Check if we're in popup context (no chrome.tabs access)
+      if (typeof chrome.tabs === 'undefined') {
+        // In popup context, we need to get tab info differently
+        const response = await chrome.runtime.sendMessage({ action: 'CHECK_WALLET' });
+        
+        if (response && response.success && response.result && response.result.isInstalled) {
+          if (response.result.accounts && response.result.accounts.length > 0) {
+            setAccount(response.result.accounts[0]);
+            setNetwork(response.result.network.name);
+          }
+        }
+        return;
+      }
+
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab) {
         console.log('No active tab found');
@@ -41,6 +55,23 @@ const WalletConnect = () => {
     setError(null);
 
     try {
+      // Check if we're in popup context (no chrome.tabs access)
+      if (typeof chrome.tabs === 'undefined') {
+        // In popup context, send message without tabId
+        const response = await chrome.runtime.sendMessage({ action: 'CONNECT_WALLET' });
+        
+        if (response && response.success && response.result && response.result.accounts.length > 0) {
+          setAccount(response.result.accounts[0]);
+          setNetwork(response.result.network.name);
+          
+          // Store in chrome storage
+          chrome.storage.sync.set({ connectedWallet: response.result.accounts[0] });
+        } else if (response && response.error) {
+          setError(response.error);
+        }
+        return;
+      }
+
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab) {
         setError('No active tab found');

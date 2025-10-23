@@ -1,31 +1,6 @@
-// Wallet Bridge - Injected into page context to access window.ethereum
-// This script runs in the page context, not the extension context
-
+// Simplified Wallet Bridge - Direct MetaMask access
 (function() {
   'use strict';
-
-  // Wait for ethers to be available
-  const waitForEthers = () => {
-    return new Promise((resolve) => {
-      if (typeof ethers !== 'undefined') {
-        resolve();
-        return;
-      }
-      
-      // Try to load ethers.js
-      const script = document.createElement('script');
-      script.src = 'https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js';
-      script.onload = () => {
-        console.log('Lemo: Ethers.js loaded for wallet bridge');
-        resolve();
-      };
-      script.onerror = () => {
-        console.error('Lemo: Failed to load ethers.js');
-        resolve(); // Continue anyway
-      };
-      document.head.appendChild(script);
-    });
-  };
 
   // Listen for messages from the content script
   window.addEventListener('message', async (event) => {
@@ -37,25 +12,22 @@
     const { action, requestId } = event.data;
 
     try {
-      await waitForEthers();
-      
       let result = null;
 
       switch (action) {
         case 'CHECK_WALLET':
           if (typeof window.ethereum !== 'undefined') {
             try {
-              // Use ethers v5 syntax for compatibility
-              const provider = new ethers.providers.Web3Provider(window.ethereum);
-              const accounts = await provider.listAccounts();
-              const network = await provider.getNetwork();
+              // Check if MetaMask is installed and get accounts
+              const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+              const networkId = await window.ethereum.request({ method: 'net_version' });
               
               result = {
                 isInstalled: true,
-                accounts: accounts.map(acc => acc),
+                accounts: accounts,
                 network: {
-                  name: network.name,
-                  chainId: network.chainId.toString()
+                  id: networkId,
+                  name: getNetworkName(networkId)
                 }
               };
             } catch (err) {
@@ -73,15 +45,14 @@
           }
 
           try {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await provider.send('eth_requestAccounts', []);
-            const network = await provider.getNetwork();
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const networkId = await window.ethereum.request({ method: 'net_version' });
             
             result = {
               accounts: accounts,
               network: {
-                name: network.name,
-                chainId: network.chainId.toString()
+                id: networkId,
+                name: getNetworkName(networkId)
               }
             };
           } catch (err) {
@@ -89,19 +60,6 @@
               throw new Error('User rejected the connection request');
             }
             throw err;
-          }
-          break;
-
-        case 'GET_NETWORK':
-          if (typeof window.ethereum !== 'undefined') {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const network = await provider.getNetwork();
-            result = {
-              name: network.name,
-              chainId: network.chainId.toString()
-            };
-          } else {
-            throw new Error('MetaMask is not installed');
           }
           break;
 
@@ -128,6 +86,19 @@
       }, '*');
     }
   });
+
+  function getNetworkName(id) {
+    const networks = {
+      '1': 'mainnet',
+      '5': 'goerli',
+      '137': 'polygon',
+      '56': 'bsc',
+      '11155111': 'sepolia',
+      '8453': 'base',
+      '42161': 'arbitrum'
+    };
+    return networks[id] || 'unknown';
+  }
 
   console.log('Lemo: Wallet bridge initialized');
 })();

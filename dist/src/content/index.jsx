@@ -133,6 +133,21 @@ async function handleWalletOperation(request, sendResponse) {
   try {
     const requestId = request.requestId || Date.now();
     
+    // Ensure wallet bridge is injected
+    if (!document.querySelector('script[data-lemo-wallet-bridge]')) {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('src/content/walletBridge.js');
+      script.setAttribute('data-lemo-wallet-bridge', 'true');
+      document.head.appendChild(script);
+      
+      // Wait for script to load
+      await new Promise((resolve) => {
+        script.onload = resolve;
+        script.onerror = resolve;
+        setTimeout(resolve, 1000); // Fallback timeout
+      });
+    }
+    
     // Send message to page context
     window.postMessage({
       source: 'lemo-extension',
@@ -166,14 +181,14 @@ async function handleWalletOperation(request, sendResponse) {
 
     window.addEventListener('message', responseHandler);
 
-    // Timeout after 30 seconds
+    // Timeout after 15 seconds
     setTimeout(() => {
       window.removeEventListener('message', responseHandler);
       sendResponse({
         success: false,
         error: 'Wallet operation timeout'
       });
-    }, 30000);
+    }, 15000);
 
   } catch (error) {
     console.error('Wallet operation error:', error);
