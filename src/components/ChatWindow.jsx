@@ -100,11 +100,11 @@ const ChatWindow = () => {
               <div
                 className={`rounded-2xl px-4 py-3 shadow-sm ${
                   message.type === 'bot'
-                    ? 'bg-white border border-orange-200 rounded-tl-sm'
+                    ? 'bg-white border border-orange-200 rounded-tl-sm text-gray-800'
                     : 'bg-gradient-to-r from-[#FF7A00] to-[#E76500] text-white rounded-tr-sm'
                 }`}
               >
-                <p className="text-sm leading-relaxed">{message.content}</p>
+                <p className="text-sm leading-relaxed text-current">{message.content}</p>
                 
                 {/* Product Card */}
                 {message.messageType === 'product' && (

@@ -95,58 +95,71 @@ input::placeholder, .chatbox::placeholder {
   border-radius: 8px;
 }
 
-/* Assistant Input Bar */
+/* Assistant Input Bar - Comet Style */
 .assistant-input-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   background: #FFFFFF;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(255,122,0,0.10);
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgba(255, 122, 0, 0.08);
   padding: 12px 20px;
   margin: 20px 0;
-}
-
-.tab-indicator {
-  display: flex;
-  align-items: center;
-  margin-right: 12px;
-}
-
-.tab-icon {
-  width: 24px;
-  height: 24px;
-  margin-right: 6px;
-  fill: #FF7A00;
-}
-
-.tab-title {
-  font-weight: 500;
-  color: #FF7A00;
-  font-size: 15px;
+  border: 1px solid #e5e7eb;
+  min-height: 52px;
 }
 
 .input-area {
   flex-grow: 1;
   background: transparent;
   border: none;
-  font-size: 17px;
+  font-size: 16px;
   color: #262626;
   outline: none;
+  padding: 8px 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  font-family: inherit;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.input-area::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
 }
 
 .icon-btn {
   background: none;
   border: none;
-  margin-left: 11px;
+  margin-left: 8px;
   cursor: pointer;
-  color: #FF7A00;
-  font-size: 18px;
+  color: #6b7280;
+  font-size: 20px;
   transition: color 0.2s, transform 0.12s;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .icon-btn:hover {
-  color: #E76500;
-  transform: scale(1.12);
+  color: #FF7A00;
+  background: rgba(255, 122, 0, 0.1);
+  transform: scale(1.05);
+}
+
+.icon-btn.send-btn {
+  background: linear-gradient(135deg, #FF7A00 0%, #E76500 100%);
+  color: white;
+  margin-left: 12px;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.icon-btn.send-btn:hover {
+  background: linear-gradient(135deg, #E76500 0%, #D55A00 100%);
+  transform: scale(1.05);
 }
 
 /* Glassmorphism styles */

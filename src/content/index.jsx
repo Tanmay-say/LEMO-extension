@@ -26,7 +26,7 @@ const initializeOverlay = () => {
   const toggleButton = document.createElement('button');
   toggleButton.id = 'lemo-toggle-btn';
   toggleButton.className = 'lemo-toggle-button';
-  toggleButton.innerHTML = '🤖';
+  toggleButton.innerHTML = '<img src="' + chrome.runtime.getURL('logo.png') + '" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" />';
   toggleButton.onclick = showOverlay;
   document.body.appendChild(toggleButton);
 
@@ -120,7 +120,69 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     sendResponse({ success: true });
   }
+
+  // Handle wallet operations
+  if (request.action === 'WALLET_OPERATION') {
+    handleWalletOperation(request, sendResponse);
+    return true; // Keep message channel open for async response
+  }
 });
+
+// Handle wallet operations by communicating with page context
+async function handleWalletOperation(request, sendResponse) {
+  try {
+    const requestId = request.requestId || Date.now();
+    
+    // Send message to page context
+    window.postMessage({
+      source: 'lemo-extension',
+      action: request.walletAction,
+      requestId
+    }, '*');
+
+    // Listen for response from page context
+    const responseHandler = (event) => {
+      if (event.source !== window || 
+          !event.data || 
+          event.data.source !== 'lemo-extension-response' ||
+          event.data.requestId !== requestId) {
+        return;
+      }
+
+      window.removeEventListener('message', responseHandler);
+      
+      if (event.data.success) {
+        sendResponse({
+          success: true,
+          result: event.data.result
+        });
+      } else {
+        sendResponse({
+          success: false,
+          error: event.data.error
+        });
+      }
+    };
+
+    window.addEventListener('message', responseHandler);
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      window.removeEventListener('message', responseHandler);
+      sendResponse({
+        success: false,
+        error: 'Wallet operation timeout'
+      });
+    }, 30000);
+
+  } catch (error) {
+    console.error('Wallet operation error:', error);
+    sendResponse({
+      success: false,
+      error: error.message || 'Failed to perform wallet operation'
+    });
+  }
+}
 
 // Initialize when page loads
 if (document.readyState === 'loading') {

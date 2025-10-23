@@ -37,10 +37,11 @@ export const injectOverlayStyles = () => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 16px;
-      background: white;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #FF7A00 0%, #E76500 100%);
       border-bottom: 1px solid #e5e7eb;
       flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(255, 122, 0, 0.1);
     }
 
     /* Content */

@@ -14,13 +14,13 @@ const Overlay = ({ onClose, onMinimize }) => {
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-lg">
-              🚀
+              <img src={chrome.runtime.getURL('logo.png')} alt="Lemo" className="w-6 h-6 rounded-full object-cover" />
             </div>
             <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-400 rounded-full border border-white"></div>
           </div>
           <div>
-            <h3 className="font-semibold text-sm text-gray-800">Lemo AI</h3>
-            <p className="text-xs text-gray-500">Smart Assistant</p>
+            <h3 className="font-semibold text-sm text-white">Lemo AI</h3>
+            <p className="text-xs text-orange-100">Smart Assistant</p>
           </div>
         </div>
 
@@ -30,8 +30,8 @@ const Overlay = ({ onClose, onMinimize }) => {
             onClick={() => setActiveTab('chat')}
             className={`p-2 rounded-lg transition-all ${
               activeTab === 'chat'
-                ? 'bg-orange-100 text-orange-600'
-                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                ? 'bg-white/30 text-white'
+                : 'text-orange-100 hover:text-white hover:bg-white/20'
             }`}
             title="Chat"
           >
@@ -41,8 +41,8 @@ const Overlay = ({ onClose, onMinimize }) => {
             onClick={() => setActiveTab('wallet')}
             className={`p-2 rounded-lg transition-all ${
               activeTab === 'wallet'
-                ? 'bg-orange-100 text-orange-600'
-                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                ? 'bg-white/30 text-white'
+                : 'text-orange-100 hover:text-white hover:bg-white/20'
             }`}
             title="Wallet"
           >
@@ -52,8 +52,8 @@ const Overlay = ({ onClose, onMinimize }) => {
             onClick={() => setActiveTab('settings')}
             className={`p-2 rounded-lg transition-all ${
               activeTab === 'settings'
-                ? 'bg-orange-100 text-orange-600'
-                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                ? 'bg-white/30 text-white'
+                : 'text-orange-100 hover:text-white hover:bg-white/20'
             }`}
             title="Settings"
           >
@@ -61,19 +61,19 @@ const Overlay = ({ onClose, onMinimize }) => {
           </button>
 
           {/* Divider */}
-          <div className="w-px h-6 bg-gray-200 mx-1"></div>
+          <div className="w-px h-6 bg-white/30 mx-1"></div>
 
           {/* Control Buttons */}
           <button
             onClick={onMinimize}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+            className="p-2 rounded-lg text-orange-100 hover:text-white hover:bg-white/20 transition-all"
             title="Minimize"
           >
             <Minus className="w-4 h-4" />
           </button>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+            className="p-2 rounded-lg text-orange-100 hover:text-red-200 hover:bg-red-500/20 transition-all"
             title="Close"
           >
             <X className="w-4 h-4" />

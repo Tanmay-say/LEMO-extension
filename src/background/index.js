@@ -42,7 +42,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-// Listen for messages from content script
+// Listen for messages from content script and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'overlay_toggled') {
     // Update badge
@@ -54,10 +54,61 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       color: '#667eea',
       tabId: sender.tab.id
     });
+    sendResponse({ success: true });
+    return true;
   }
+
+  // Handle wallet operations
+  if (request.action === 'CHECK_WALLET' || request.action === 'CONNECT_WALLET') {
+    handleWalletOperation(request, sender, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
   sendResponse({ success: true });
   return true;
 });
+
+// Handle wallet operations by communicating with content script
+async function handleWalletOperation(request, sender, sendResponse) {
+  try {
+    // Determine target tab: prefer provided tabId from popup
+    let tabId = request.tabId;
+    if (!tabId) {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      tabId = activeTab?.id;
+    }
+    
+    if (!tabId) {
+      sendResponse({ success: false, error: 'No active tab found' });
+      return;
+    }
+
+    // Inject wallet bridge if not already injected
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['src/content/walletBridge.js']
+      });
+    } catch (injectionError) {
+      console.log('Wallet bridge already injected or injection failed:', injectionError);
+    }
+
+    // Send message to content script to relay to page context
+    const response = await chrome.tabs.sendMessage(tabId, {
+      action: 'WALLET_OPERATION',
+      walletAction: request.action,
+      requestId: Date.now()
+    });
+
+    sendResponse(response);
+  } catch (error) {
+    console.error('Wallet operation error:', error);
+    sendResponse({ 
+      success: false, 
+      error: error.message || 'Failed to perform wallet operation' 
+    });
+  }
+}
 
 // Clear badge on tab close/navigation
 chrome.tabs.onRemoved.addListener((tabId) => {

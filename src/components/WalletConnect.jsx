@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Wallet, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { ethers } from 'ethers';
 
 const WalletConnect = () => {
   const [account, setAccount] = useState(null);
@@ -13,45 +12,59 @@ const WalletConnect = () => {
   }, []);
 
   const checkConnection = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.listAccounts();
-        
-        if (accounts.length > 0) {
-          setAccount(accounts[0].address);
-          const network = await provider.getNetwork();
-          setNetwork(network.name);
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) {
+        console.log('No active tab found');
+        return;
+      }
+      
+      const response = await chrome.runtime.sendMessage({ action: 'CHECK_WALLET', tabId: tab.id });
+      
+      if (response && response.success && response.result && response.result.isInstalled) {
+        if (response.result.accounts && response.result.accounts.length > 0) {
+          setAccount(response.result.accounts[0]);
+          setNetwork(response.result.network.name);
         }
-      } catch (err) {
-        console.error('Error checking connection:', err);
+      }
+    } catch (err) {
+      console.error('Error checking connection:', err);
+      // Handle extension context invalidation
+      if (err.message && err.message.includes('Extension context invalidated')) {
+        setError('Extension needs to be reloaded. Please refresh the page.');
       }
     }
   };
 
   const connectWallet = async () => {
-    if (typeof window.ethereum === 'undefined') {
-      setError('MetaMask is not installed. Please install MetaMask to continue.');
-      return;
-    }
-
     setIsConnecting(true);
     setError(null);
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) {
+        setError('No active tab found');
+        return;
+      }
       
-      if (accounts.length > 0) {
-        setAccount(accounts[0]);
-        const network = await provider.getNetwork();
-        setNetwork(network.name);
+      const response = await chrome.runtime.sendMessage({ action: 'CONNECT_WALLET', tabId: tab.id });
+      
+      if (response && response.success && response.result && response.result.accounts.length > 0) {
+        setAccount(response.result.accounts[0]);
+        setNetwork(response.result.network.name);
         
         // Store in chrome storage
-        chrome.storage.sync.set({ connectedWallet: accounts[0] });
+        chrome.storage.sync.set({ connectedWallet: response.result.accounts[0] });
+      } else if (response && response.error) {
+        setError(response.error);
       }
     } catch (err) {
-      setError(err.message || 'Failed to connect wallet');
+      console.error('Wallet connection error:', err);
+      if (err.message && err.message.includes('Extension context invalidated')) {
+        setError('Extension needs to be reloaded. Please refresh the page.');
+      } else {
+        setError(err.message || 'Failed to connect wallet');
+      }
     } finally {
       setIsConnecting(false);
     }

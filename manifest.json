@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/content/*"],
+      "resources": ["src/content/*", "logo.png"],
       "matches": ["http://*/*", "https://*/*"]
     }
   ]

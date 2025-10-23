@@ -13,17 +13,17 @@ const SettingsTab = () => {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Sub Tabs */}
-      <div className="flex border-b border-gray-200 bg-orange-50">
+      <div className="flex border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-all ${
                 activeSubTab === tab.id
-                  ? 'text-orange-600 border-b-2 border-orange-600 bg-white'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-orange-600 border-b-2 border-orange-600 bg-white shadow-sm'
+                  : 'text-gray-500 hover:text-orange-600 hover:bg-orange-50'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -63,7 +63,7 @@ const GeneralSettings = () => {
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
             >
               <option value="light">Light</option>
               <option value="dark">Dark</option>
@@ -75,7 +75,7 @@ const GeneralSettings = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Overlay Size
             </label>
-            <select className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none">
+            <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all">
               <option>Compact</option>
               <option selected>Default</option>
               <option>Large</option>
@@ -105,7 +105,7 @@ const PreferencesSettings = () => {
 
         <div className="space-y-3">
           {['Amazon', 'Flipkart', 'eBay'].map((platform) => (
-            <label key={platform} className="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200 hover:border-orange-300 transition-colors cursor-pointer">
+            <label key={platform} className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-sm transition-all cursor-pointer">
               <span className="font-medium text-gray-700">{platform}</span>
               <input
                 type="checkbox"
@@ -125,7 +125,7 @@ const PreferencesSettings = () => {
         <select
           value={preferences.currency}
           onChange={(e) => setPreferences({ ...preferences, currency: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
         >
           <option value="USD">USD - US Dollar</option>
           <option value="EUR">EUR - Euro</option>
