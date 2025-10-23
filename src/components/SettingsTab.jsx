@@ -143,7 +143,7 @@ const AboutSettings = () => {
       <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white">
         <div className="text-center space-y-4">
           <div className="w-20 h-20 mx-auto bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border-2 border-white/30 overflow-hidden">
-            <img src="/logo.png" alt="Lemo" className="w-16 h-16 rounded-full object-cover" />
+            <img src={chrome.runtime.getURL('logo.png')} alt="Lemo" className="w-16 h-16 rounded-full object-cover" />
           </div>
           <div>
             <h2 className="text-2xl font-bold">Lemo AI</h2>

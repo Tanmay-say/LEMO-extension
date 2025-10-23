@@ -8,4 +8,8 @@ export default defineConfig({
     react(),
     crx({ manifest }),
   ],
+  publicDir: 'public',
+  build: {
+    copyPublicDir: true,
+  },
 })

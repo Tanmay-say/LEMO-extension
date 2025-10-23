@@ -12,10 +12,13 @@
     "http://*/*",
     "https://*/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; connect-src 'self' wss://*.appsync-realtime-api.eu-west-1.amazonaws.com https://*.infura.io https://api.calibration.node.glif.io"
+  },
   "content_scripts": [
     {
       "js": [
-        "assets/index.jsx-C4nvDuIR.js"
+        "assets/index.jsx-D_LCciii.js"
       ],
       "matches": [
         "http://*/*",
@@ -23,7 +26,7 @@
       ],
       "run_at": "document_end",
       "css": [
-        "assets/index-oLUmuQGo.css"
+        "assets/index-BryBhAeo.css"
       ]
     }
   ],
@@ -43,7 +46,7 @@
       "resources": [
         "src/content/*",
         "logo.png",
-        "assets/index.jsx-C4nvDuIR.js"
+        "assets/index.jsx-D_LCciii.js"
       ],
       "use_dynamic_url": false
     }

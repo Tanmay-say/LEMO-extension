@@ -12,6 +12,9 @@
     "http://*/*",
     "https://*/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; connect-src 'self' wss://*.appsync-realtime-api.eu-west-1.amazonaws.com https://*.infura.io https://api.calibration.node.glif.io"
+  },
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
