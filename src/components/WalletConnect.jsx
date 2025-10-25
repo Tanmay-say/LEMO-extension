@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, CheckCircle, XCircle, AlertCircle, RefreshCw, ExternalLink, Copy, ChevronDown } from 'lucide-react';
+import { Wallet, CheckCircle, XCircle, AlertCircle, RefreshCw, ExternalLink, Copy, ChevronDown, User } from 'lucide-react';
+import RegistrationModal from './RegistrationModal';
+import { checkUserExists, registerUser } from '../utils/auth.js';
 
 const WalletConnect = () => {
   // Ultimate safety wrapper to prevent any crashes
@@ -16,6 +18,12 @@ const WalletConnect = () => {
   const [showTokenDropdown, setShowTokenDropdown] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(null);
   const [isLoadingSpecificBalance, setIsLoadingSpecificBalance] = useState(false);
+  
+  // Authentication states
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [isCheckingUser, setIsCheckingUser] = useState(false);
 
   const networks = [
     { id: 'sepolia', name: 'Sepolia', tokens: ['ETH', 'USDC', 'PYUSD'] },
@@ -222,25 +230,29 @@ const WalletConnect = () => {
         // In popup context, send message without tabId
         const response = await safeSendMessage({ action: 'CONNECT_WALLET' });
         
-        if (response && response.success && response.result && response.result.accounts && response.result.accounts.length > 0) {
-          setAccount(response.result.accounts[0]);
-          setNetwork(response.result.network.name);
-          
-          // Sync selectedNetwork with actual network
-          if (response.result.network.name === 'sepolia') {
-            setSelectedNetwork('sepolia');
-          } else if (response.result.network.name === 'filecoin-calibration') {
-            setSelectedNetwork('filecoin-calibration');
-          }
-          
-          // Store in chrome storage
-          chrome.storage.sync.set({ connectedWallet: response.result.accounts[0] });
-        } else if (response && response.error) {
-          setError(response.error);
-        } else {
-          setError('Failed to connect to wallet. Please try again.');
+      if (response && response.success && response.result && response.result.accounts && response.result.accounts.length > 0) {
+        const walletAddress = response.result.accounts[0];
+        setAccount(walletAddress);
+        setNetwork(response.result.network.name);
+        
+        // Sync selectedNetwork with actual network
+        if (response.result.network.name === 'sepolia') {
+          setSelectedNetwork('sepolia');
+        } else if (response.result.network.name === 'filecoin-calibration') {
+          setSelectedNetwork('filecoin-calibration');
         }
-        return;
+        
+        // Store in chrome storage
+        chrome.storage.sync.set({ connectedWallet: walletAddress });
+        
+        // Check if user exists in backend
+        await checkAndAuthenticateUser(walletAddress);
+      } else if (response && response.error) {
+        setError(response.error);
+      } else {
+        setError('Failed to connect to wallet. Please try again.');
+      }
+      return;
       }
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -252,7 +264,8 @@ const WalletConnect = () => {
       const response = await safeSendMessage({ action: 'CONNECT_WALLET', tabId: tab.id });
       
       if (response && response.success && response.result && response.result.accounts && response.result.accounts.length > 0) {
-        setAccount(response.result.accounts[0]);
+        const walletAddress = response.result.accounts[0];
+        setAccount(walletAddress);
         setNetwork(response.result.network.name);
         
         // Sync selectedNetwork with actual network
@@ -263,7 +276,10 @@ const WalletConnect = () => {
         }
         
         // Store in chrome storage
-        chrome.storage.sync.set({ connectedWallet: response.result.accounts[0] });
+        chrome.storage.sync.set({ connectedWallet: walletAddress });
+        
+        // Check if user exists in backend
+        await checkAndAuthenticateUser(walletAddress);
       } else if (response && response.error) {
         setError(response.error);
       } else {
@@ -431,9 +447,94 @@ const WalletConnect = () => {
     }
   };
 
+  // Check if user exists in backend
+  const checkAndAuthenticateUser = async (walletAddress) => {
+    setIsCheckingUser(true);
+    setError(null);
+    
+    try {
+      const result = await checkUserExists(walletAddress);
+      
+      if (result.isInactive) {
+        // User exists but is inactive
+        setError(`⚠️ Account Inactive: ${result.error}. Please contact support to activate your account. Wallet features will still work.`);
+        setUserData(null);
+      } else if (result.exists) {
+        // User exists and is active, load their data
+        const user = result.user;
+        
+        // Format user data to match expected structure
+        const formattedUser = {
+          id: user.id || walletAddress,
+          email: user.email,
+          firstName: user.first_name || user.firstName,
+          lastName: user.last_name || user.lastName,
+          walletAddress: user.wallet_address || user.walletAddress || walletAddress,
+          otherDetails: user.other_details || user.otherDetails,
+        };
+        
+        setUserData(formattedUser);
+        console.log('User authenticated:', formattedUser);
+      } else {
+        // New user, show registration modal
+        setShowRegistrationModal(true);
+      }
+    } catch (err) {
+      console.error('Error checking user:', err);
+      setError(`Authentication failed: ${err.message}. You can still use the wallet features.`);
+    } finally {
+      setIsCheckingUser(false);
+    }
+  };
+
+  // Handle user registration
+  const handleRegistration = async (registrationData) => {
+    setIsRegistering(true);
+    setError(null);
+    
+    try {
+      const response = await registerUser(account, registrationData);
+      console.log('Registration response:', response);
+      
+      // Backend returns: { success: true, data: { user: {...} } }
+      const user = response.data?.user || response.user || response;
+      
+      // Format user data to match expected structure
+      const formattedUser = {
+        id: user.id || account,
+        email: user.email,
+        firstName: user.first_name || user.firstName,
+        lastName: user.last_name || user.lastName,
+        walletAddress: user.wallet_address || user.walletAddress || account,
+        otherDetails: user.other_details || user.otherDetails || registrationData.otherDetails,
+      };
+      
+      setUserData(formattedUser);
+      setShowRegistrationModal(false);
+      console.log('User registered successfully:', formattedUser);
+      
+      // Force a re-render to show profile
+      setTimeout(() => {
+        setError(null);
+      }, 100);
+    } catch (err) {
+      console.error('Error registering user:', err);
+      setError(`Registration failed: ${err.message}`);
+      setIsRegistering(false);
+    }
+  };
+
+  // Cancel registration
+  const handleCancelRegistration = () => {
+    setShowRegistrationModal(false);
+    // Optionally disconnect wallet if user cancels registration
+    // disconnectWallet();
+  };
+
   const disconnectWallet = () => {
     setAccount(null);
     setNetwork(null);
+    setUserData(null);
     chrome.storage.sync.remove('connectedWallet');
   };
 
@@ -444,10 +545,28 @@ const WalletConnect = () => {
 
   return (
     <div className="space-y-4">
+      {/* Registration Modal */}
+      {showRegistrationModal && (
+        <RegistrationModal
+          walletAddress={account}
+          onSubmit={handleRegistration}
+          onCancel={handleCancelRegistration}
+          isLoading={isRegistering}
+        />
+      )}
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-red-700">{error}</div>
+        </div>
+      )}
+
+      {/* Checking User Status */}
+      {isCheckingUser && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0 mt-0.5"></div>
+          <div className="text-sm text-blue-700">Authenticating with backend...</div>
         </div>
       )}
 
@@ -593,6 +712,45 @@ const WalletConnect = () => {
               <span className="text-sm font-medium">Refresh Balances</span>
             </button>
           </div>
+
+          {/* User Profile Section */}
+          {userData && (
+            <div className="bg-gradient-to-br from-purple-50 to-white rounded-2xl p-6 border border-purple-200">
+              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <User className="w-5 h-5" />
+                User Profile
+              </h3>
+              
+              <div className="space-y-3">
+                <div className="bg-white rounded-xl p-4 border border-purple-100">
+                  <div className="text-xs text-gray-600 mb-1">Name</div>
+                  <div className="font-semibold text-gray-800">
+                    {userData.firstName} {userData.lastName}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-purple-100">
+                  <div className="text-xs text-gray-600 mb-1">Email</div>
+                  <div className="font-medium text-gray-800 break-all">
+                    {userData.email}
+                  </div>
+                </div>
+
+                {userData.otherDetails && userData.otherDetails.howDidYouHearAboutUs && (
+                  <div className="bg-white rounded-xl p-4 border border-purple-100">
+                    <div className="text-xs text-gray-600 mb-1">Source</div>
+                    <div className="font-medium text-gray-800">
+                      {userData.otherDetails.howDidYouHearAboutUs}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-gray-500 text-center pt-2">
+                  Profile loaded from backend ✓
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Wallet Balances Section */}
           <div className="bg-gradient-to-br from-orange-50 to-white rounded-2xl p-6 border border-orange-200">

@@ -1,14 +1,28 @@
 // API Service for LEMO Extension Backend Integration
-const API_BASE_URL = 'http://localhost:8001';
 
 class LemoAPI {
   constructor() {
-    this.baseURL = API_BASE_URL;
+    this.baseURL = null;
+  }
+
+  // Get backend URL from storage
+  async getBaseURL() {
+    if (this.baseURL) return this.baseURL;
+    
+    try {
+      const result = await chrome.storage.sync.get(['backendUrl']);
+      this.baseURL = result.backendUrl || 'http://localhost:8000';
+      return this.baseURL;
+    } catch (error) {
+      console.error('Error getting backend URL:', error);
+      return 'http://localhost:8000';
+    }
   }
 
   // Helper method to make API calls
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
+    const baseURL = await this.getBaseURL();
+    const url = `${baseURL}${endpoint}`;
     const config = {
       headers: {
         'Content-Type': 'application/json',

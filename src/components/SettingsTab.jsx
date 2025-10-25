@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Settings, Sliders, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Sliders, Info, Globe, CheckCircle, XCircle } from 'lucide-react';
 
 const SettingsTab = () => {
   const [activeSubTab, setActiveSubTab] = useState('general');
@@ -45,9 +45,120 @@ const SettingsTab = () => {
 
 const GeneralSettings = () => {
   const [theme, setTheme] = useState('light');
+  const [backendUrl, setBackendUrl] = useState('http://localhost:8000');
+  const [connectionStatus, setConnectionStatus] = useState(null); // null, 'checking', 'connected', 'error'
+  const [savedBackendUrl, setSavedBackendUrl] = useState('http://localhost:8000');
+
+  useEffect(() => {
+    // Load backend URL from storage
+    chrome.storage.sync.get(['backendUrl'], (result) => {
+      if (result.backendUrl) {
+        setBackendUrl(result.backendUrl);
+        setSavedBackendUrl(result.backendUrl);
+      }
+    });
+  }, []);
+
+  const testBackendConnection = async (url) => {
+    setConnectionStatus('checking');
+    try {
+      const response = await fetch(`${url}/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setConnectionStatus('connected');
+        setTimeout(() => setConnectionStatus(null), 3000);
+      } else {
+        setConnectionStatus('error');
+        setTimeout(() => setConnectionStatus(null), 3000);
+      }
+    } catch (error) {
+      console.error('Backend connection test failed:', error);
+      setConnectionStatus('error');
+      setTimeout(() => setConnectionStatus(null), 3000);
+    }
+  };
+
+  const saveBackendUrl = async () => {
+    try {
+      await chrome.storage.sync.set({ backendUrl: backendUrl });
+      setSavedBackendUrl(backendUrl);
+      testBackendConnection(backendUrl);
+    } catch (error) {
+      console.error('Error saving backend URL:', error);
+      setConnectionStatus('error');
+    }
+  };
 
   return (
     <div className="space-y-6">
+      {/* Backend Configuration */}
+      <div className="bg-gradient-to-br from-blue-50 to-white rounded-2xl p-6 border border-blue-200">
+        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <Globe className="w-5 h-5" />
+          Backend Configuration
+        </h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Backend API URL
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={backendUrl}
+                onChange={(e) => setBackendUrl(e.target.value)}
+                placeholder="http://localhost:8000"
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+              />
+              <button
+                onClick={saveBackendUrl}
+                disabled={backendUrl === savedBackendUrl || connectionStatus === 'checking'}
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Save
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Configure the backend API URL for authentication and chat services
+            </p>
+          </div>
+
+          {/* Connection Status */}
+          {connectionStatus && (
+            <div className={`flex items-center gap-2 p-3 rounded-lg ${
+              connectionStatus === 'connected' ? 'bg-green-50 text-green-700' :
+              connectionStatus === 'error' ? 'bg-red-50 text-red-700' :
+              'bg-blue-50 text-blue-700'
+            }`}>
+              {connectionStatus === 'checking' && (
+                <>
+                  <div className="w-4 h-4 border-2 border-blue-700 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm font-medium">Testing connection...</span>
+                </>
+              )}
+              {connectionStatus === 'connected' && (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">Connected successfully!</span>
+                </>
+              )}
+              {connectionStatus === 'error' && (
+                <>
+                  <XCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">Connection failed. Check URL and backend status.</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-gradient-to-br from-orange-50 to-white rounded-2xl p-6 border border-orange-200">
         <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Settings className="w-5 h-5" />

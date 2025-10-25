@@ -1,18 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ProductCard from './ProductCard';
-import ComparisonTable from './ComparisonTable';
+import ReactMarkdown from 'react-markdown';
 import AssistantInput from './AssistantInput';
+import { AlertCircle, WalletIcon } from 'lucide-react';
+import { getConnectedWallet } from '../utils/auth.js';
+import { createSession, getCurrentSession, saveCurrentSession, getCurrentTabInfo, sendChatMessage, getSessionDetails } from '../utils/session.js';
 
 const ChatWindow = () => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'bot',
-      content: 'Hello! I\'m your Lemo AI Assistant. I can help you find products and compare prices across platforms. Try asking me about a product!',
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [error, setError] = useState(null);
+  const [isBackendAvailable, setIsBackendAvailable] = useState(true);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -23,78 +24,233 @@ const ChatWindow = () => {
     scrollToBottom();
   }, [messages]);
 
-  const generateResponse = (userInput) => {
-    const input = userInput.toLowerCase();
+  useEffect(() => {
+    initializeChat();
+  }, []);
 
-    // Check for product-related queries
-    if (input.includes('product') || input.includes('buy') || input.includes('price') || input.includes('compare')) {
-      if (input.includes('compare')) {
-        return {
-          id: Date.now(),
+  const initializeChat = async () => {
+    try {
+      // Check if wallet is connected
+      const wallet = await getConnectedWallet();
+      
+      if (!wallet) {
+        setIsAuthenticated(false);
+        setIsLoadingSession(false);
+        setMessages([{
+          id: 'welcome',
           type: 'bot',
-          messageType: 'comparison',
-          content: 'Here\'s a price comparison across different platforms:',
-          timestamp: new Date(),
-        };
-      } else {
-        return {
-          id: Date.now(),
-          type: 'bot',
-          messageType: 'product',
-          content: 'I found this product that might interest you:',
-          timestamp: new Date(),
-        };
+          content: 'Please connect your wallet from the Wallet tab to start chatting.',
+          timestamp: new Date().toISOString(),
+        }]);
+        return;
       }
-    }
 
-    // Default responses
-    const responses = {
-      hello: 'Hello! How can I help you find products today?',
-      help: 'I can help you find products, compare prices, and connect your wallet. Just ask me anything!',
-      default: 'That\'s interesting! You can ask me to find products or compare prices across platforms.',
-    };
+      // Wallet is connected - enable chat
+      setWalletAddress(wallet);
+      setIsAuthenticated(true);
 
-    if (input.includes('hello') || input.includes('hi')) {
-      return { id: Date.now(), type: 'bot', content: responses.hello, timestamp: new Date() };
+      // Try to load existing session (gracefully fail if backend unavailable)
+      const existingSessionId = await getCurrentSession();
+      
+      if (existingSessionId) {
+        // Try to load chat history from backend
+        try {
+          const sessionData = await getSessionDetails(wallet, existingSessionId);
+          setSessionId(existingSessionId);
+          setIsBackendAvailable(true);
+          
+          if (sessionData.session && sessionData.session.chat_messages) {
+            // Convert backend messages to our format
+            const formattedMessages = sessionData.session.chat_messages.map(msg => ({
+              id: msg.id,
+              type: msg.message_type === 'user' ? 'user' : 'bot',
+              content: msg.message,
+              timestamp: msg.created_at,
+            }));
+            setMessages(formattedMessages);
+          }
+        } catch (err) {
+          console.error('Error loading session from backend:', err);
+          // Backend unavailable, but chat still works
+          setIsBackendAvailable(false);
+          setError('Backend unavailable. Chat will work but history won\'t be saved.');
+          setMessages([{
+            id: 'welcome',
+            type: 'bot',
+            content: 'Hello! I\'m your Lemo AI Assistant. (⚠️ Backend offline - responses may be limited)',
+            timestamp: new Date().toISOString(),
+          }]);
+        }
+      } else {
+        // No existing session, show welcome message
+        setMessages([{
+          id: 'welcome',
+          type: 'bot',
+          content: 'Hello! I\'m your Lemo AI Assistant. I can help you find products and compare prices across platforms. Try asking me about a product!',
+          timestamp: new Date().toISOString(),
+        }]);
+      }
+      
+      setIsLoadingSession(false);
+    } catch (err) {
+      console.error('Error initializing chat:', err);
+      setIsLoadingSession(false);
+      setError('Failed to initialize chat. Please try again.');
     }
-    if (input.includes('help')) {
-      return { id: Date.now(), type: 'bot', content: responses.help, timestamp: new Date() };
-    }
-
-    return { id: Date.now(), type: 'bot', content: responses.default, timestamp: new Date() };
   };
 
-  const handleSendMessage = (inputValue) => {
+  const handleSendMessage = async (inputValue) => {
     if (!inputValue.trim()) return;
 
+    if (!isAuthenticated || !walletAddress) {
+      setError('Please connect your wallet first.');
+      return;
+    }
+
+    // Create user message
     const userMessage = {
-      id: Date.now(),
+      id: `user-${Date.now()}`,
       type: 'user',
       content: inputValue,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     setMessages(prev => [...prev, userMessage]);
     setIsTyping(true);
+    setError(null);
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse = generateResponse(inputValue);
-      setMessages(prev => [...prev, botResponse]);
+    try {
+      // Try to use backend
+      let currentSessionId = sessionId;
+      
+      if (!currentSessionId) {
+        try {
+          const tabInfo = await getCurrentTabInfo();
+          const newSession = await createSession(walletAddress, tabInfo.url, tabInfo.domain);
+          currentSessionId = newSession.id || newSession.session_id;
+          setSessionId(currentSessionId);
+          await saveCurrentSession(currentSessionId);
+        } catch (sessionError) {
+          console.error('Failed to create session:', sessionError);
+          // Continue without session - backend unavailable
+        }
+      }
+
+      if (currentSessionId) {
+        // Try to send message to backend
+        try {
+          const response = await sendChatMessage(walletAddress, currentSessionId, inputValue);
+          
+          // Add bot response from backend
+          const botMessage = {
+            id: `bot-${Date.now()}`,
+            type: 'bot',
+            content: response.answer,
+            timestamp: new Date().toISOString(),
+          };
+
+          setMessages(prev => [...prev, botMessage]);
+          setIsBackendAvailable(true);
+        } catch (apiError) {
+          console.error('Backend API error:', apiError);
+          throw apiError; // Let outer catch handle it
+        }
+      } else {
+        // No backend session - fallback message
+        throw new Error('Backend service unavailable. Please check your settings and ensure the backend is running.');
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setIsBackendAvailable(false);
+      
+      // Show error but don't completely break
+      const errorDetails = err.message.includes('403') 
+        ? 'Your account may be inactive. Please contact support or check your registration status.'
+        : err.message;
+      
+      setError(`Backend error: ${errorDetails}`);
+      
+      // Add error message to chat
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        type: 'bot',
+        content: `⚠️ **Backend Service Error**\n\nI couldn't process your request. ${errorDetails}\n\n**Troubleshooting:**\n- Check Settings → Backend Configuration\n- Ensure backend server is running\n- Verify your account is active`,
+        timestamp: new Date().toISOString(),
+        isError: true,
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 500);
+    }
   };
 
-  const clearChat = () => {
-    setMessages([messages[0]]);
+  const clearChat = async () => {
+    // Clear session
+    setSessionId(null);
+    await saveCurrentSession(null);
+    
+    // Reset messages
+    setMessages([{
+      id: 'welcome',
+      type: 'bot',
+      content: 'Hello! I\'m your Lemo AI Assistant. I can help you find products and compare prices across platforms. Try asking me about a product!',
+      timestamp: new Date().toISOString(),
+    }]);
   };
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (timestamp) => {
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (err) {
+      return '';
+    }
   };
+
+  // Check if content is markdown
+  const isMarkdown = (content) => {
+    return /[#*_`\[\]]/g.test(content) || content.includes('\n\n');
+  };
+
+  if (isLoadingSession) {
+    return (
+      <div className="flex flex-col h-full bg-white items-center justify-center">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-600">Loading chat...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-white">
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-50 border-b border-red-200 p-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <span className="text-sm text-red-700">{error}</span>
+        </div>
+      )}
+
+      {/* Backend Status Warning */}
+      {!isBackendAvailable && (
+        <div className="bg-yellow-50 border-b border-yellow-200 p-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+          <span className="text-sm text-yellow-800">
+            Backend service is unavailable. Check your settings and backend connection.
+          </span>
+        </div>
+      )}
+
+      {/* Not Authenticated Warning */}
+      {!isAuthenticated && (
+        <div className="bg-orange-50 border-b border-orange-200 p-4 flex items-center justify-center gap-3">
+          <WalletIcon className="w-5 h-5 text-orange-600" />
+          <span className="text-sm text-orange-800 font-medium">
+            Please connect your wallet from the Wallet tab to start chatting
+          </span>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-50 to-white">
         {messages.map((message) => (
@@ -108,7 +264,9 @@ const ChatWindow = () => {
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
                 message.type === 'bot'
-                  ? 'bg-gradient-to-br from-orange-500 to-orange-600'
+                  ? message.isError 
+                    ? 'bg-gradient-to-br from-red-500 to-red-600'
+                    : 'bg-gradient-to-br from-orange-500 to-orange-600'
                   : 'bg-gradient-to-br from-blue-400 to-cyan-400'
               }`}
             >
@@ -124,31 +282,18 @@ const ChatWindow = () => {
               <div
                 className={`rounded-2xl px-4 py-3 shadow-sm ${
                   message.type === 'bot'
-                    ? 'bg-white border border-orange-200 rounded-tl-sm text-gray-800'
+                    ? message.isError
+                      ? 'bg-red-50 border border-red-200 rounded-tl-sm text-gray-800'
+                      : 'bg-white border border-orange-200 rounded-tl-sm text-gray-800'
                     : 'bg-gradient-to-r from-[#FF7A00] to-[#E76500] text-white rounded-tr-sm'
                 }`}
               >
-                <p className="text-sm leading-relaxed text-current">{message.content}</p>
-                
-                {/* Product Card */}
-                {message.messageType === 'product' && (
-                  <div className="mt-3">
-                    <ProductCard
-                      title="Wireless Headphones Pro"
-                      price="$129.99"
-                      platform="Amazon"
-                      rating={4.5}
-                      imageUrl="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop"
-                      link="#"
-                    />
+                {isMarkdown(message.content) && message.type === 'bot' ? (
+                  <div className="prose prose-sm max-w-none">
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
-                )}
-
-                {/* Comparison Table */}
-                {message.messageType === 'comparison' && (
-                  <div className="mt-3">
-                    <ComparisonTable />
-                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed text-current whitespace-pre-wrap">{message.content}</p>
                 )}
               </div>
               <span className="text-xs text-gray-400 mt-1 block px-2">
@@ -178,9 +323,20 @@ const ChatWindow = () => {
 
       {/* Input Area */}
       <div className="p-4 bg-white border-t border-gray-200">
-        <AssistantInput onSendMessage={handleSendMessage} />
-        <div className="flex justify-end mt-2 text-xs text-gray-400 px-1">
-          <span className="opacity-70">Powered by Lemo AI</span>
+        <AssistantInput 
+          onSendMessage={handleSendMessage}
+          disabled={!isAuthenticated || isTyping}
+        />
+        <div className="flex justify-between mt-2 text-xs px-1">
+          {sessionId && (
+            <button
+              onClick={clearChat}
+              className="text-gray-400 hover:text-orange-600 transition-colors"
+            >
+              New Chat
+            </button>
+          )}
+          <span className="text-gray-400 opacity-70 ml-auto">Powered by Lemo AI</span>
         </div>
       </div>
     </div>
