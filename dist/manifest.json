@@ -6,6 +6,7 @@
   "permissions": [
     "storage",
     "activeTab",
+    "tabs",
     "scripting"
   ],
   "host_permissions": [
@@ -18,7 +19,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/index.jsx-tivPXvDc.js"
+        "assets/index.jsx-r6Cd2v4G.js"
       ],
       "matches": [
         "http://*/*",
@@ -46,7 +47,7 @@
       "resources": [
         "src/content/*",
         "logo.png",
-        "assets/index.jsx-tivPXvDc.js"
+        "assets/index.jsx-r6Cd2v4G.js"
       ],
       "use_dynamic_url": false
     }

@@ -125,13 +125,32 @@ const ChatWindow = () => {
       
       if (!currentSessionId) {
         try {
+          console.log('[CHAT] ============================================');
+          console.log('[CHAT] Creating new session...');
+          console.log('[CHAT] Wallet Address:', walletAddress);
+          
           const tabInfo = await getCurrentTabInfo();
+          console.log('[CHAT] ✓ Got tab info:', tabInfo);
+          console.log('[CHAT]   - URL:', tabInfo.url);
+          console.log('[CHAT]   - Domain:', tabInfo.domain);
+          
+          console.log('[CHAT] Calling createSession API...');
           const newSession = await createSession(walletAddress, tabInfo.url, tabInfo.domain);
+          console.log('[CHAT] ✓ Session created:', newSession);
+          
           currentSessionId = newSession.id || newSession.session_id;
+          console.log('[CHAT] ✓ Session ID:', currentSessionId);
+          
           setSessionId(currentSessionId);
           await saveCurrentSession(currentSessionId);
+          console.log('[CHAT] ✓ Session saved to storage');
+          console.log('[CHAT] ============================================');
         } catch (sessionError) {
-          console.error('Failed to create session:', sessionError);
+          console.error('[CHAT] ✗✗✗ Failed to create session:', sessionError);
+          console.error('[CHAT] Error details:', {
+            message: sessionError.message,
+            stack: sessionError.stack,
+          });
           // Continue without session - backend unavailable
         }
       }
