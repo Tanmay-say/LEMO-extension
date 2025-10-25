@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import AssistantInput from './AssistantInput';
+import BuyCard from './BuyCard';
 import { AlertCircle, WalletIcon } from 'lucide-react';
 import { getConnectedWallet } from '../utils/auth.js';
 import { createSession, getCurrentSession, saveCurrentSession, getCurrentTabInfo, sendChatMessage, getSessionDetails } from '../utils/session.js';
@@ -14,6 +15,7 @@ const ChatWindow = () => {
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [error, setError] = useState(null);
   const [isBackendAvailable, setIsBackendAvailable] = useState(true);
+  const [currentProductData, setCurrentProductData] = useState(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -99,6 +101,81 @@ const ChatWindow = () => {
     }
   };
 
+  // Detect purchase intent from user message
+  const detectPurchaseIntent = (message) => {
+    const highIntentKeywords = ['buy', 'purchase', 'order', 'get', 'worth it', 'should i', 'recommend', 'ready to buy'];
+    const mediumIntentKeywords = ['price', 'cost', 'expensive', 'cheap', 'value', 'deal', 'discount'];
+    const interestKeywords = ['good', 'best', 'quality', 'features', 'reviews', 'compare', 'interested'];
+    
+    const lowerMessage = message.toLowerCase();
+    
+    // High intent detection
+    const hasHighIntent = highIntentKeywords.some(keyword => lowerMessage.includes(keyword));
+    if (hasHighIntent) return 'high';
+    
+    // Medium intent detection
+    const hasMediumIntent = mediumIntentKeywords.some(keyword => lowerMessage.includes(keyword));
+    if (hasMediumIntent) return 'medium';
+    
+    // Interest detection
+    const hasInterest = interestKeywords.some(keyword => lowerMessage.includes(keyword));
+    if (hasInterest) return 'low';
+    
+    return 'none';
+  };
+
+  // Extract product data from AI response
+  const extractProductData = (response) => {
+    try {
+      // Extract price (₹29,990 format)
+      const priceMatch = response.match(/₹[\d,]+/);
+      const price = priceMatch ? priceMatch[0] : '';
+      
+      // Extract USD price ($28 format)
+      const usdMatch = response.match(/\$[\d.]+/);
+      const usdPrice = usdMatch ? usdMatch[0] : '';
+      
+      // Extract rating (4.1/5 format)
+      const ratingMatch = response.match(/(\d+\.?\d*)\/5/);
+      const rating = ratingMatch ? ratingMatch[1] : '';
+      
+      // Extract review count
+      const reviewMatch = response.match(/\((\d+[\d,]*) reviews?\)/);
+      const reviewCount = reviewMatch ? reviewMatch[1] : '';
+      
+      // Extract discount
+      const discountMatch = response.match(/(\d+)% off/);
+      const discount = discountMatch ? `${discountMatch[1]}%` : '';
+      
+      // Extract title (first bold text)
+      const titleMatch = response.match(/\*\*(.*?)\*\*/);
+      const title = titleMatch ? titleMatch[1] : '';
+      
+      // Extract description (first sentence after title)
+      const descMatch = response.match(/\*\*.*?\*\*\s*([^.]+)/);
+      const description = descMatch ? descMatch[1].trim() : '';
+      
+      return {
+        title,
+        price,
+        usdPrice,
+        rating,
+        reviewCount,
+        discount,
+        description,
+        url: window.location.href
+      };
+    } catch (error) {
+      console.error('Error extracting product data:', error);
+      return null;
+    }
+  };
+
+  const handleBuyClick = (url) => {
+    // Open product page in new tab
+    window.open(url, '_blank');
+  };
+
   const handleSendMessage = async (inputValue) => {
     if (!inputValue.trim()) return;
 
@@ -106,6 +183,10 @@ const ChatWindow = () => {
       setError('Please connect your wallet first.');
       return;
     }
+
+    // Detect purchase intent
+    const intent = detectPurchaseIntent(inputValue);
+    console.log('[CHAT] Purchase intent detected:', intent);
 
     // Create user message
     const userMessage = {
@@ -160,12 +241,23 @@ const ChatWindow = () => {
         try {
           const response = await sendChatMessage(walletAddress, currentSessionId, inputValue);
           
+          // Extract product data and check for buy intent
+          const productData = extractProductData(response.answer);
+          const shouldShowBuyCard = intent !== 'none' && productData && productData.title;
+          
+          if (shouldShowBuyCard) {
+            setCurrentProductData(productData);
+            console.log('[CHAT] Product data extracted:', productData);
+          }
+
           // Add bot response from backend
           const botMessage = {
             id: `bot-${Date.now()}`,
             type: 'bot',
             content: response.answer,
             timestamp: new Date().toISOString(),
+            showBuyCard: shouldShowBuyCard,
+            productData: productData
           };
 
           setMessages(prev => [...prev, botMessage]);
@@ -318,6 +410,16 @@ const ChatWindow = () => {
               <span className="text-xs text-gray-400 mt-1 block px-2">
                 {formatTime(message.timestamp)}
               </span>
+              
+              {/* Show Buy Card if message has buy intent */}
+              {message.showBuyCard && message.productData && (
+                <div className="mt-3">
+                  <BuyCard 
+                    productData={message.productData}
+                    onBuyClick={handleBuyClick}
+                  />
+                </div>
+              )}
             </div>
           </div>
         ))}
