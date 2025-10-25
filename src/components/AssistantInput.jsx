@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const AssistantInput = () => {
+const AssistantInput = ({ onSendMessage }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef(null);
 
@@ -11,7 +11,7 @@ const AssistantInput = () => {
   const handleSend = () => {
     if (inputValue.trim()) {
       // Handle send action
-      console.log('Sending message:', inputValue);
+      onSendMessage && onSendMessage(inputValue);
       setInputValue('');
     }
   };
@@ -47,7 +47,7 @@ const AssistantInput = () => {
       />
       <button className="icon-btn" title="Attach">
         <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+          <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.61 5.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
       </button>
       <button className="icon-btn" title="Voice">

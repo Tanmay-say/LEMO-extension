@@ -152,7 +152,9 @@ async function handleWalletOperation(request, sendResponse) {
     window.postMessage({
       source: 'lemo-extension',
       action: request.walletAction,
-      requestId
+      requestId,
+      tokenSymbol: request.tokenSymbol,  // Forward additional data
+      account: request.account            // Forward additional data
     }, '*');
 
     // Listen for response from page context

@@ -96,7 +96,9 @@ async function handleWalletOperation(request, sender, sendResponse) {
     const response = await chrome.tabs.sendMessage(tabId, {
       action: 'WALLET_OPERATION',
       walletAction: request.action,
-      requestId: Date.now()
+      requestId: Date.now(),
+      tokenSymbol: request.tokenSymbol,  // Pass additional data
+      account: request.account            // Pass additional data
     });
 
     sendResponse(response);

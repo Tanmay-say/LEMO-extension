@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Send, Trash2 } from 'lucide-react';
 import ProductCard from './ProductCard';
 import ComparisonTable from './ComparisonTable';
 import AssistantInput from './AssistantInput';
@@ -62,27 +63,6 @@ const ChatWindow = () => {
     }
 
     return { id: Date.now(), type: 'bot', content: responses.default, timestamp: new Date() };
-  };
-
-  const handleSendMessage = (inputValue) => {
-    if (!inputValue.trim()) return;
-
-    const userMessage = {
-      id: Date.now(),
-      type: 'user',
-      content: inputValue,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setIsTyping(true);
-
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse = generateResponse(inputValue);
-      setMessages(prev => [...prev, botResponse]);
-      setIsTyping(false);
-    }, 500);
   };
 
   const clearChat = () => {
@@ -178,7 +158,7 @@ const ChatWindow = () => {
 
       {/* Input Area */}
       <div className="p-4 bg-white border-t border-gray-200">
-        <AssistantInput onSendMessage={handleSendMessage} />
+        <AssistantInput />
         <div className="flex justify-end mt-2 text-xs text-gray-400 px-1">
           <span className="opacity-70">Powered by Lemo AI</span>
         </div>

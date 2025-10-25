@@ -1,0 +1,16 @@
+fastapi
+prisma
+requests
+uvicorn[standard]
+beautifulsoup4
+sentence_transformers
+ddgs
+python-dotenv
+redis
+numpy
+pydantic
+dotenv
+
+langchain
+langchain_core
+langchain_google_genai
