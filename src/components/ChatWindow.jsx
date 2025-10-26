@@ -247,24 +247,102 @@ I've cleared my previous context and I'm ready to analyze this new page. Ask me 
       if (!walletAddress) {
         throw new Error('Please connect your wallet first from the Wallet tab.');
       }
-      
-      console.log('[ChatWindow] ⚠️ PAYMENT PROCESSING NOT IMPLEMENTED');
-      console.log('[ChatWindow] ⚠️ This is a UI mockup - actual payment will be implemented');
-      console.log('[ChatWindow] ⚠️ Need to integrate with actual smart contract calls');
-      
-      // SHOW ERROR - DON'T FAKE SUCCESS
-      const errorMessage = {
-        id: `error-${Date.now()}`,
+
+      // Add loading message
+      const loadingMessage = {
+        id: `loading-${Date.now()}`,
         type: 'bot',
-        content: `⚠️ **Payment Processing Not Ready**\n\n**This feature is under development.**\n\nTo process PYUSD payments, we need to:\n1. Connect to MetaMask from page context\n2. Call PaymentProcessor contract\n3. Upload receipt to Lighthouse\n4. Record transaction on-chain\n\n**Current Status:** UI mockup only - no actual transactions processed.`,
+        content: `🔄 **Processing ${paymentMethod} Payment...**\n\nPlease wait while we process your payment. This may take a few moments.`,
         timestamp: new Date().toISOString(),
-        isError: true
+        isLoading: true
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, loadingMessage]);
+
+      // Check MetaMask availability via wallet bridge
+      const walletCheck = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          window.removeEventListener('message', handler);
+          reject(new Error('Wallet check timeout'));
+        }, 5000);
+        
+        window.postMessage({
+          source: 'lemo-extension',
+          action: 'CHECK_WALLET'
+        }, '*');
+        
+        const handler = (event) => {
+          if (event.source === window && event.data && event.data.source === 'lemo-extension-response') {
+            clearTimeout(timeout);
+            window.removeEventListener('message', handler);
+            resolve(event.data);
+          }
+        };
+        window.addEventListener('message', handler);
+      });
+
+      if (!walletCheck.result || !walletCheck.result.isInstalled) {
+        throw new Error('MetaMask is not installed. Please install MetaMask to process payments.');
+      }
+
+      if (!walletCheck.result.accounts || walletCheck.result.accounts.length === 0) {
+        throw new Error('No MetaMask accounts connected. Please connect your wallet.');
+      }
+
+      // Process payment via wallet bridge
+      console.log('[ChatWindow] Processing payment via wallet bridge...', { productData, paymentMethod, walletAddress });
+      const result = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          window.removeEventListener('message', handler);
+          reject(new Error('Payment processing timeout'));
+        }, 60000); // 60 second timeout for payment
+        
+        window.postMessage({
+          source: 'lemo-extension',
+          action: 'PROCESS_PAYMENT',
+          productData: productData,
+          paymentMethod: paymentMethod,
+          walletAddress: walletAddress
+        }, '*');
+        
+        const handler = (event) => {
+          if (event.source === window && event.data && event.data.source === 'lemo-extension-response') {
+            clearTimeout(timeout);
+            window.removeEventListener('message', handler);
+            resolve(event.data);
+          }
+        };
+        window.addEventListener('message', handler);
+      });
       
-      console.log('[ChatWindow] ❌ Payment not implemented - showing error instead of fake success');
+      if (result.success && result.result && result.result.success) {
+        // Remove loading message
+        setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id));
+        
+        // Extract payment details from the nested result
+        const paymentData = result.result;
+        console.log('[ChatWindow] Payment data received:', paymentData);
+        
+        // Add success message
+        const successMessage = {
+          id: `success-${Date.now()}`,
+          type: 'bot',
+          content: `✅ **Payment Successful!**\n\n**Transaction Hash:** \`${paymentData.txHash || 'N/A'}\`\n**Amount Paid:** ${paymentData.amountPaid || 'N/A'} ${paymentData.currency || 'PYUSD'}\n**Receipt ID:** ${paymentData.receiptId || 'N/A'}\n**Block Number:** ${paymentData.blockNumber || 'N/A'}\n\nYour purchase has been processed and recorded on-chain. Thank you for your purchase!`,
+          timestamp: new Date().toISOString(),
+          isSuccess: true
+        };
+        setMessages(prev => [...prev, successMessage]);
+        
+        console.log('[ChatWindow] ✅ Payment successful:', paymentData);
+      } else {
+        console.error('[ChatWindow] Payment failed:', result);
+        throw new Error(result.error || result.result?.error || 'Payment processing failed');
+      }
+      
     } catch (error) {
       console.error('[ChatWindow] Buy Now error:', error);
+      
+      // Remove loading message if it exists
+      setMessages(prev => prev.filter(msg => !msg.isLoading));
       
       const errorMessage = {
         id: `error-${Date.now()}`,
