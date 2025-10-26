@@ -321,12 +321,23 @@ I've cleared my previous context and I'm ready to analyze this new page. Ask me 
         // Extract payment details from the nested result
         const paymentData = result.result;
         console.log('[ChatWindow] Payment data received:', paymentData);
+        console.log('[ChatWindow] Individual fields:');
+        console.log('[ChatWindow] txHash:', paymentData.txHash);
+        console.log('[ChatWindow] amountPaid:', paymentData.amountPaid);
+        console.log('[ChatWindow] currency:', paymentData.currency);
+        console.log('[ChatWindow] receiptId:', paymentData.receiptId);
+        console.log('[ChatWindow] blockNumber:', paymentData.blockNumber);
+        console.log('[ChatWindow] merchantWallet:', paymentData.merchantWallet);
         
         // Add success message
+        const content = `✅ **Payment Successful!**\n\n**Transaction Hash:** \`${paymentData.txHash || 'N/A'}\`\n**Amount Paid:** ${paymentData.amountPaid || 'N/A'} ${paymentData.currency || 'PYUSD'}\n**Receipt ID:** ${paymentData.receiptId || 'N/A'}\n**Block Number:** ${paymentData.blockNumber || 'N/A'}\n**Merchant Wallet:** \`${paymentData.merchantWallet || 'N/A'}\`\n\nYour PYUSD has been transferred to the merchant wallet. Thank you for your purchase!`;
+        
+        console.log('[ChatWindow] Final content string:', content);
+        
         const successMessage = {
           id: `success-${Date.now()}`,
           type: 'bot',
-          content: `✅ **Payment Successful!**\n\n**Transaction Hash:** \`${paymentData.txHash || 'N/A'}\`\n**Amount Paid:** ${paymentData.amountPaid || 'N/A'} ${paymentData.currency || 'PYUSD'}\n**Receipt ID:** ${paymentData.receiptId || 'N/A'}\n**Block Number:** ${paymentData.blockNumber || 'N/A'}\n\nYour purchase has been processed and recorded on-chain. Thank you for your purchase!`,
+          content: content,
           timestamp: new Date().toISOString(),
           isSuccess: true
         };

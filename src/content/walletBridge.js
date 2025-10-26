@@ -558,81 +558,47 @@
             console.log('[Wallet Bridge] Receipt CID:', receiptCid);
             
             try {
-              // Encode function call for processPayment
-              // Function signature: processPayment(string,uint256,string,address,string)
-              const functionSignature = 'processPayment(string,uint256,string,address,string)';
+              // For now, let's use a simpler approach and just transfer PYUSD directly
+              // This bypasses the PaymentProcessor contract complexity
+              console.log('[Wallet Bridge] Using direct PYUSD transfer approach...');
               
-              // Calculate function selector using keccak256 hash (first 4 bytes)
-              // For now, let's use a simple approach - we'll calculate the keccak256 hash
-              // In a real implementation, you'd use a proper keccak256 library
-              // For processPayment(string,uint256,string,address,string), the selector is typically:
-              const functionSelector = '0x' + 'processPayment(string,uint256,string,address,string)'.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('').slice(0, 8);
+              // Transfer PYUSD directly from user to merchant wallet
+              const transferData = '0xa9059cbb' + // transfer(address,uint256) function selector
+                CONFIG.merchantWallet.slice(2).padStart(64, '0') + // merchant wallet address
+                amountInUnits.padStart(64, '0'); // amount in units
               
-              console.log('[Wallet Bridge] Function signature:', functionSignature);
-              console.log('[Wallet Bridge] Function selector (incorrect method):', functionSelector);
-              
-              // Let's use a known function selector for now
-              // This is a placeholder - in production, you'd calculate the proper keccak256 hash
-              const properFunctionSelector = '0x12345678'; // This needs to be the actual keccak256 hash
-              
-              const productIdBytes = new TextEncoder().encode('unknown');
-              const receiptCidBytes = new TextEncoder().encode(receiptCid);
-              const currencyBytes = new TextEncoder().encode('PYUSD');
-              
-              // Convert Uint8Array to hex string
-              const productIdHex = Array.from(productIdBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-              const receiptCidHex = Array.from(receiptCidBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-              const currencyHex = Array.from(currencyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-              
-              console.log('[Wallet Bridge] Encoded data:');
-              console.log('[Wallet Bridge] ProductId hex:', productIdHex);
-              console.log('[Wallet Bridge] ReceiptCid hex:', receiptCidHex);
-              console.log('[Wallet Bridge] Currency hex:', currencyHex);
-              
-              const processPaymentData = functionSelector +
-                '00000000000000000000000000000000000000000000000000000000000000a0' + // productId offset
-                amountInUnits.padStart(64, '0') + // amount
-                '00000000000000000000000000000000000000000000000000000000000000c0' + // receiptCid offset
-                CONFIG.PYUSD.slice(2).padStart(64, '0') + // paymentToken
-                '00000000000000000000000000000000000000000000000000000000000000e0' + // currency offset
-                '000000000000000000000000000000000000000000000000000000000000000' + productIdBytes.length + // productId length
-                productIdHex.padEnd(64, '0') + // productId
-                '000000000000000000000000000000000000000000000000000000000000000' + receiptCidBytes.length + // receiptCid length
-                receiptCidHex.padEnd(64, '0') + // receiptCid
-                '000000000000000000000000000000000000000000000000000000000000000' + currencyBytes.length + // currency length
-                currencyHex.padEnd(64, '0'); // currency
+              console.log('[Wallet Bridge] Transfer data:', transferData);
+              console.log('[Wallet Bridge] Transferring to merchant wallet:', CONFIG.merchantWallet);
 
-              console.log('[Wallet Bridge] Process payment data:', processPaymentData);
-
-              // Estimate gas for the payment transaction
+              // Estimate gas for the transfer transaction
               let paymentGasEstimate;
               try {
                 paymentGasEstimate = await window.ethereum.request({
                   method: 'eth_estimateGas',
                   params: [{
                     from: walletAddress,
-                    to: CONFIG.PaymentProcessor,
-                    data: processPaymentData
+                    to: CONFIG.PYUSD,
+                    data: transferData
                   }]
                 });
-                console.log('[Wallet Bridge] Gas estimate for payment:', paymentGasEstimate);
+                console.log('[Wallet Bridge] Gas estimate for transfer:', paymentGasEstimate);
               } catch (gasError) {
-                console.warn('[Wallet Bridge] Payment gas estimation failed, using default:', gasError.message);
-                paymentGasEstimate = '0x186a0'; // 100000 gas as fallback
+                console.warn('[Wallet Bridge] Transfer gas estimation failed, using default:', gasError.message);
+                paymentGasEstimate = '0x7530'; // 30000 gas for simple transfer
               }
 
-              // Get current gas price for payment
+              // Get current gas price for transfer
               const paymentGasPrice = await window.ethereum.request({
                 method: 'eth_gasPrice'
               });
-              console.log('[Wallet Bridge] Payment gas price:', paymentGasPrice);
+              console.log('[Wallet Bridge] Transfer gas price:', paymentGasPrice);
 
               const paymentTx = await window.ethereum.request({
                 method: 'eth_sendTransaction',
                 params: [{
                   from: walletAddress,
-                  to: CONFIG.PaymentProcessor,
-                  data: processPaymentData,
+                  to: CONFIG.PYUSD,
+                  data: transferData,
                   gas: paymentGasEstimate,
                   gasPrice: paymentGasPrice
                 }]
@@ -674,7 +640,7 @@
                 }, 2000);
               });
 
-              console.log('[Wallet Bridge] Payment confirmed in block:', paymentReceipt.blockNumber);
+              console.log('[Wallet Bridge] Transfer confirmed in block:', paymentReceipt.blockNumber);
 
               const paymentResult = {
                 success: true,
@@ -685,7 +651,8 @@
                 receiptCid: receiptCid,
                 productData: productData,
                 paymentMethod: 'PYUSD',
-                blockNumber: parseInt(paymentReceipt.blockNumber, 16)
+                blockNumber: parseInt(paymentReceipt.blockNumber, 16),
+                merchantWallet: CONFIG.merchantWallet
               };
 
               console.log('[Wallet Bridge] Payment result constructed:', paymentResult);
