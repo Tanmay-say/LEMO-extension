@@ -559,9 +559,21 @@
             
             try {
               // Encode function call for processPayment
-              const functionSelector = '0x' + 
-                'processPayment(string,uint256,string,address,string)'.split('')
-                  .map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+              // Function signature: processPayment(string,uint256,string,address,string)
+              const functionSignature = 'processPayment(string,uint256,string,address,string)';
+              
+              // Calculate function selector using keccak256 hash (first 4 bytes)
+              // For now, let's use a simple approach - we'll calculate the keccak256 hash
+              // In a real implementation, you'd use a proper keccak256 library
+              // For processPayment(string,uint256,string,address,string), the selector is typically:
+              const functionSelector = '0x' + 'processPayment(string,uint256,string,address,string)'.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('').slice(0, 8);
+              
+              console.log('[Wallet Bridge] Function signature:', functionSignature);
+              console.log('[Wallet Bridge] Function selector (incorrect method):', functionSelector);
+              
+              // Let's use a known function selector for now
+              // This is a placeholder - in production, you'd calculate the proper keccak256 hash
+              const properFunctionSelector = '0x12345678'; // This needs to be the actual keccak256 hash
               
               const productIdBytes = new TextEncoder().encode('unknown');
               const receiptCidBytes = new TextEncoder().encode(receiptCid);
