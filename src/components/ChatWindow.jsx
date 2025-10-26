@@ -42,7 +42,7 @@ const ChatWindow = () => {
         const currentUrl = window.location.href;
         
         if (currentUrl !== previousUrlRef.current && previousUrlRef.current !== '') {
-          console.log('[CHAT] URL changed detected:', {
+          console.log('[CHAT] Page change detected:', {
             from: previousUrlRef.current,
             to: currentUrl
           });
@@ -52,21 +52,20 @@ const ChatWindow = () => {
           setCurrentPageUrl(tabInfo.url);
           setCurrentPageDomain(tabInfo.domain);
           
+          // CLEAR previous messages (keep context fresh)
+          setMessages([{
+            id: `page-change-${Date.now()}`,
+            type: 'bot',
+            content: `🔄 **Page Changed!**\n\nI've detected you're now on: **${tabInfo.domain}**\n\nI've cleared my previous context and I'm ready to analyze this new page. Ask me anything about this product!`,
+            timestamp: new Date().toISOString(),
+          }]);
+          
           // Create new session for new page
           if (walletAddress && tabInfo.url !== 'chrome://newtab') {
             try {
               const newSession = await createSession(walletAddress, tabInfo.url, tabInfo.domain);
               setSessionId(newSession.id || newSession.session_id);
               await saveCurrentSession(newSession.id || newSession.session_id);
-              
-              // Add system message about page change
-              const pageChangeMessage = {
-                id: `page-change-${Date.now()}`,
-                type: 'bot',
-                content: `🌐 **Page changed!** I'm now analyzing: ${tabInfo.domain}`,
-                timestamp: new Date().toISOString(),
-              };
-              setMessages(prev => [...prev, pageChangeMessage]);
             } catch (error) {
               console.error('Error creating session for new page:', error);
             }
@@ -546,7 +545,7 @@ const ChatWindow = () => {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t border-gray-200">
+      <div className="p-3 bg-white border-t border-gray-200">
         <CurrentPageIndicator 
           url={currentPageUrl}
           domain={currentPageDomain}
@@ -557,19 +556,19 @@ const ChatWindow = () => {
           onSendMessage={handleSendMessage}
           disabled={!isAuthenticated || isTyping}
         />
-        <div className="flex justify-between mt-2 text-xs px-1">
+        <div className="flex justify-between mt-1.5 text-xs px-0.5">
           {sessionId && (
             <button
               onClick={clearChat}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               New Chat
             </button>
           )}
-          <span className="text-gray-400 opacity-70 ml-auto">Powered by Lemo AI</span>
+          <span className="text-gray-400 opacity-70 ml-auto text-[10px]">Powered by Lemo AI</span>
         </div>
       </div>
     </div>

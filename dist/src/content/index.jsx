@@ -62,25 +62,65 @@ const showOverlay = () => {
   }
 
   // Notify background
-  chrome.runtime.sendMessage({ action: 'overlay_toggled', isVisible: true });
+  try {
+    chrome.runtime.sendMessage({ action: 'overlay_toggled', isVisible: true }, () => {
+      if (chrome.runtime.lastError) {
+        console.log('Message send error (ignored):', chrome.runtime.lastError.message);
+      }
+    });
+  } catch (error) {
+    console.log('Runtime unavailable (ignored):', error.message);
+  }
 };
 
 const hideOverlay = () => {
   const wrapper = document.getElementById('lemo-overlay-root');
   const toggleButton = document.getElementById('lemo-toggle-btn');
-
+  
   if (wrapper) {
     wrapper.classList.add('hidden');
     document.body.classList.remove('lemo-overlay-active');
     isVisible = false;
   }
-
+  
   if (toggleButton) {
     toggleButton.classList.remove('hidden');
   }
-
-  // Notify background
-  chrome.runtime.sendMessage({ action: 'overlay_toggled', isVisible: false });
+  
+  // Notify background (with error handling)
+  try {
+    chrome.runtime.sendMessage({ action: 'overlay_toggled', isVisible: false }, () => {
+      if (chrome.runtime.lastError) {
+        console.log('Message send error (ignored):', chrome.runtime.lastError.message);
+      }
+    });
+  } catch (error) {
+    console.log('Runtime unavailable (ignored):', error.message);
+  }
+  
+  // NEW: Completely unmount React and remove all elements
+  if (overlayRoot) {
+    overlayRoot.unmount();
+    overlayRoot = null;
+  }
+  
+  // Remove DOM elements
+  if (wrapper) wrapper.remove();
+  if (toggleButton) toggleButton.remove();
+  
+  // Clear state
+  isVisible = false;
+  
+  // Notify background to clear badge (with error handling)
+  try {
+    chrome.runtime.sendMessage({ action: 'extension_closed' }, () => {
+      if (chrome.runtime.lastError) {
+        console.log('Extension closed message error (ignored):', chrome.runtime.lastError.message);
+      }
+    });
+  } catch (error) {
+    console.log('Runtime unavailable on close (ignored):', error.message);
+  }
 };
 
 const minimizeOverlay = () => {
@@ -97,8 +137,16 @@ const minimizeOverlay = () => {
     toggleButton.classList.remove('hidden');
   }
 
-  // Notify background
-  chrome.runtime.sendMessage({ action: 'overlay_toggled', isVisible: false });
+  // Notify background (with error handling)
+  try {
+    chrome.runtime.sendMessage({ action: 'overlay_toggled', isVisible: false }, () => {
+      if (chrome.runtime.lastError) {
+        console.log('Message send error (ignored):', chrome.runtime.lastError.message);
+      }
+    });
+  } catch (error) {
+    console.log('Runtime unavailable (ignored):', error.message);
+  }
 };
 
 const toggleOverlay = () => {

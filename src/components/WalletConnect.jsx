@@ -48,8 +48,19 @@ const WalletConnect = () => {
   // Helper function to safely send messages with timeout
   const safeSendMessage = async (message, timeoutMs = 10000) => {
     try {
+      // Check if runtime context is valid
+      if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+        console.log('Runtime context is invalid, ignoring message');
+        return null;
+      }
+      
       return await withTimeout(chrome.runtime.sendMessage(message), timeoutMs);
     } catch (err) {
+      // Check for extension context invalidated error
+      if (err && err.message && (err.message.includes('Extension context invalidated') || err.message.includes('context invalidated'))) {
+        console.log('Extension context invalidated (ignoring):', err.message);
+        return null;
+      }
       console.error('Message send error:', err);
       throw new Error(`Failed to send message: ${err.message}`);
     }
@@ -305,7 +316,7 @@ const WalletConnect = () => {
     setError(null);
 
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'SWITCH_TO_SEPOLIA' });
+      const response = await safeSendMessage({ action: 'SWITCH_TO_SEPOLIA' });
       
       if (response && response.success) {
         setNetwork('sepolia');
@@ -329,7 +340,7 @@ const WalletConnect = () => {
     setError(null);
 
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'SWITCH_TO_FILECOIN' });
+      const response = await safeSendMessage({ action: 'SWITCH_TO_FILECOIN' });
       
       if (response && response.success) {
         setNetwork('filecoin-calibration');

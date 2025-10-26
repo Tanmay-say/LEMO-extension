@@ -58,6 +58,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'extension_closed') {
+    // Clear badge completely
+    chrome.action.setBadgeText({ text: '', tabId: sender.tab.id });
+    sendResponse({ success: true });
+    return true;
+  }
+
   // Handle wallet operations
   if (request.action === 'CHECK_WALLET' || request.action === 'CONNECT_WALLET' || 
       request.action === 'SWITCH_TO_SEPOLIA' || request.action === 'SWITCH_TO_FILECOIN' ||
