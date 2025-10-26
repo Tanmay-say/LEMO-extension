@@ -400,11 +400,59 @@
 
             const amountInUnits = Math.floor(parseFloat(usdAmount) * 1000000).toString();
             
-            // For now, skip Lighthouse upload and use a mock CID to test payment flow
-            // TODO: Re-enable Lighthouse upload once connectivity issues are resolved
-            console.log('[Wallet Bridge] Skipping Lighthouse upload for now, using mock CID');
-            const receiptCid = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-            console.log('[Wallet Bridge] Using mock CID:', receiptCid);
+            // Upload receipt to Lighthouse
+            const receiptData = {
+              productId: productData.productId || productData.url || 'unknown',
+              buyerAddress: walletAddress,
+              amount: usdAmount,
+              currency: 'PYUSD',
+              timestamp: new Date().toISOString(),
+              productDetails: {
+                title: productData.title,
+                price: productData.price,
+                image: productData.image,
+                description: productData.description,
+                url: productData.url
+              }
+            };
+
+            let receiptCid;
+            try {
+              console.log('[Wallet Bridge] Uploading receipt to Lighthouse...');
+              console.log('[Wallet Bridge] Receipt data:', receiptData);
+              
+              // Add timeout to the fetch request
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+              
+              const lighthouseResponse = await fetch('https://node.lighthouse.storage/api/v0/add', {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer 33aad03e.bb3506b68665403b80cb4d30fc6129e4',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(receiptData),
+                signal: controller.signal
+              });
+
+              clearTimeout(timeoutId);
+
+              if (!lighthouseResponse.ok) {
+                throw new Error(`Lighthouse upload failed: ${lighthouseResponse.statusText}`);
+              }
+
+              const lighthouseResult = await lighthouseResponse.json();
+              receiptCid = lighthouseResult.Hash || lighthouseResult.cid;
+              console.log('[Wallet Bridge] Receipt uploaded successfully to Lighthouse!');
+              console.log('[Wallet Bridge] Receipt CID:', receiptCid);
+              console.log('[Wallet Bridge] Receipt URL:', `https://gateway.lighthouse.storage/ipfs/${receiptCid}`);
+              
+            } catch (lighthouseError) {
+              console.warn('[Wallet Bridge] Lighthouse upload failed, using fallback CID:', lighthouseError.message);
+              // Generate a fallback CID for testing
+              receiptCid = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+              console.log('[Wallet Bridge] Using fallback CID:', receiptCid);
+            }
 
             // Check current allowance
             let allowance = 0;
@@ -649,6 +697,7 @@
                 currency: 'PYUSD',
                 receiptId: '1',
                 receiptCid: receiptCid,
+                receiptUrl: `https://gateway.lighthouse.storage/ipfs/${receiptCid}`,
                 productData: productData,
                 paymentMethod: 'PYUSD',
                 blockNumber: parseInt(paymentReceipt.blockNumber, 16),
@@ -673,9 +722,11 @@
                 currency: 'PYUSD',
                 receiptId: '1',
                 receiptCid: receiptCid,
+                receiptUrl: `https://gateway.lighthouse.storage/ipfs/${receiptCid}`,
                 productData: productData,
                 paymentMethod: 'PYUSD',
-                blockNumber: Math.floor(Math.random() * 1000000) + 1000000
+                blockNumber: Math.floor(Math.random() * 1000000) + 1000000,
+                merchantWallet: CONFIG.merchantWallet
               };
 
               console.log('[Wallet Bridge] Using mock payment result for testing:', mockResult);

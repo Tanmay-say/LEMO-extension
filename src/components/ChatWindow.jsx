@@ -330,7 +330,8 @@ I've cleared my previous context and I'm ready to analyze this new page. Ask me 
         console.log('[ChatWindow] merchantWallet:', paymentData.merchantWallet);
         
         // Add success message
-        const content = `✅ **Payment Successful!**\n\n**Transaction Hash:** \`${paymentData.txHash || 'N/A'}\`\n**Amount Paid:** ${paymentData.amountPaid || 'N/A'} ${paymentData.currency || 'PYUSD'}\n**Receipt ID:** ${paymentData.receiptId || 'N/A'}\n**Block Number:** ${paymentData.blockNumber || 'N/A'}\n**Merchant Wallet:** \`${paymentData.merchantWallet || 'N/A'}\`\n\nYour PYUSD has been transferred to the merchant wallet. Thank you for your purchase!`;
+        const receiptUrl = paymentData.receiptCid ? `https://gateway.lighthouse.storage/ipfs/${paymentData.receiptCid}` : 'N/A';
+        const content = `✅ **Payment Successful!**\n\n**Transaction Hash:** \`${paymentData.txHash || 'N/A'}\`\n**Amount Paid:** ${paymentData.amountPaid || 'N/A'} ${paymentData.currency || 'PYUSD'}\n**Receipt ID:** ${paymentData.receiptId || 'N/A'}\n**Block Number:** ${paymentData.blockNumber || 'N/A'}\n**Merchant Wallet:** \`${paymentData.merchantWallet || 'N/A'}\`\n**Receipt URL:** [View Receipt](${receiptUrl})\n\nYour PYUSD has been transferred to the merchant wallet. Thank you for your purchase!`;
         
         console.log('[ChatWindow] Final content string:', content);
         
