@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 
 const BuyCard = ({ productData, onBuyClick, walletAddress }) => {
   const [paymentMethod, setPaymentMethod] = useState('PYUSD');
-  const [pyusdBalance, setPyusdBalance] = useState(null);
+  const [pyusdBalance, setPyusdBalance] = useState('0.000000');
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
@@ -48,7 +48,12 @@ const BuyCard = ({ productData, onBuyClick, walletAddress }) => {
     setIsLoadingBalance(true);
     try {
       // Access MetaMask via wallet bridge in page context
-      const response = await new Promise((resolve) => {
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          window.removeEventListener('message', handler);
+          reject(new Error('Balance fetch timeout'));
+        }, 10000); // 10 second timeout
+        
         window.postMessage({
           source: 'lemo-extension',
           action: 'GET_SPECIFIC_TOKEN_BALANCE',
@@ -59,6 +64,7 @@ const BuyCard = ({ productData, onBuyClick, walletAddress }) => {
         // Listen for response
         const handler = (event) => {
           if (event.source === window && event.data && event.data.source === 'lemo-extension-response') {
+            clearTimeout(timeout);
             window.removeEventListener('message', handler);
             resolve(event.data);
           }
@@ -66,14 +72,28 @@ const BuyCard = ({ productData, onBuyClick, walletAddress }) => {
         window.addEventListener('message', handler);
       });
       
-      if (response && response.success) {
-        setPyusdBalance(response.balance || '0');
+      if (response && response.success && response.result) {
+        const balance = response.result.balance || '0';
+        const formattedBalance = parseFloat(balance).toFixed(6);
+        console.log('[BuyCard] PYUSD balance fetched successfully:', {
+          rawBalance: balance,
+          formattedBalance: formattedBalance,
+          decimals: response.result.decimals,
+          symbol: response.result.symbol
+        });
+        setPyusdBalance(formattedBalance);
       } else {
-        setPyusdBalance('0');
+        console.error('[BuyCard] Failed to fetch PYUSD balance:', {
+          response: response,
+          success: response?.success,
+          result: response?.result,
+          error: response?.error
+        });
+        setPyusdBalance('0.000000');
       }
     } catch (error) {
       console.error('[BuyCard] Error fetching PYUSD balance:', error);
-      setPyusdBalance('0');
+      setPyusdBalance('0.000000');
     } finally {
       setIsLoadingBalance(false);
     }
