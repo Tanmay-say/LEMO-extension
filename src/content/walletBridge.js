@@ -327,6 +327,11 @@
               PaymentProcessor: '0x210c251e5a39bd12234d3564ce61168c1bec5922',
               merchantWallet: '0x286bd33A27079f28a4B4351a85Ad7f23A04BDdfC'
             };
+            
+            console.log('[Wallet Bridge] Using contract addresses:');
+            console.log('[Wallet Bridge] PYUSD:', CONFIG.PYUSD);
+            console.log('[Wallet Bridge] PaymentProcessor:', CONFIG.PaymentProcessor);
+            console.log('[Wallet Bridge] Merchant Wallet:', CONFIG.merchantWallet);
 
             // Check network
             const networkId = await window.ethereum.request({ method: 'net_version' });
@@ -351,19 +356,47 @@
               throw new Error('PaymentProcessor contract not accessible. Please check deployment.');
             }
 
+            // Check ETH balance for gas fees
+            const ethBalance = await window.ethereum.request({
+              method: 'eth_getBalance',
+              params: [walletAddress, 'latest']
+            });
+            
+            const ethBalanceWei = parseInt(ethBalance, 16);
+            const ethBalanceEth = ethBalanceWei / Math.pow(10, 18);
+            console.log('[Wallet Bridge] ETH balance for gas:', ethBalanceEth, 'ETH');
+            
+            if (ethBalanceWei < 1000000000000000) { // 0.001 ETH minimum
+              throw new Error(`Insufficient ETH for gas fees. You have ${ethBalanceEth.toFixed(6)} ETH but need at least 0.001 ETH for transaction fees.`);
+            }
+
             // Convert price to USD and PYUSD units (6 decimals)
-            let usdAmount = '10.00';
+            let usdAmount = '1.43'; // Default fallback
             if (productData.price) {
               const priceStr = productData.price.toString();
+              console.log('[Wallet Bridge] Original price string:', priceStr);
+              
               const numericPrice = parseFloat(priceStr.replace(/[^\d.]/g, ''));
+              console.log('[Wallet Bridge] Parsed numeric price:', numericPrice);
+              
               if (!isNaN(numericPrice)) {
                 if (priceStr.includes('₹')) {
+                  // INR to USD conversion (1 INR = 0.012 USD)
                   usdAmount = (numericPrice * 0.012).toFixed(2);
-                } else {
+                  console.log('[Wallet Bridge] Converted INR to USD:', numericPrice, 'INR →', usdAmount, 'USD');
+                } else if (priceStr.includes('$')) {
+                  // Already in USD
                   usdAmount = numericPrice.toFixed(2);
+                  console.log('[Wallet Bridge] Price already in USD:', usdAmount);
+                } else {
+                  // Assume USD if no currency symbol
+                  usdAmount = numericPrice.toFixed(2);
+                  console.log('[Wallet Bridge] Assuming USD:', usdAmount);
                 }
               }
             }
+            
+            console.log('[Wallet Bridge] Final USD amount:', usdAmount);
 
             const amountInUnits = Math.floor(parseFloat(usdAmount) * 1000000).toString();
             
@@ -420,13 +453,37 @@
                 console.log('[Wallet Bridge] Approval data:', approveData);
                 console.log('[Wallet Bridge] PaymentProcessor address:', CONFIG.PaymentProcessor);
                 
+                // Estimate gas for the approval transaction
+                let gasEstimate;
+                try {
+                  gasEstimate = await window.ethereum.request({
+                    method: 'eth_estimateGas',
+                    params: [{
+                      from: walletAddress,
+                      to: CONFIG.PYUSD,
+                      data: approveData
+                    }]
+                  });
+                  console.log('[Wallet Bridge] Gas estimate for approval:', gasEstimate);
+                } catch (gasError) {
+                  console.warn('[Wallet Bridge] Gas estimation failed, using default:', gasError.message);
+                  gasEstimate = '0x186a0'; // 100000 gas as fallback
+                }
+
+                // Get current gas price
+                const gasPrice = await window.ethereum.request({
+                  method: 'eth_gasPrice'
+                });
+                console.log('[Wallet Bridge] Current gas price:', gasPrice);
+
                 const approveTx = await window.ethereum.request({
                   method: 'eth_sendTransaction',
                   params: [{
                     from: walletAddress,
                     to: CONFIG.PYUSD,
                     data: approveData,
-                    gas: '0x186a0' // 100000 gas - higher limit for approval
+                    gas: gasEstimate,
+                    gasPrice: gasPrice
                   }]
                 });
 
@@ -474,8 +531,31 @@
               }
             }
 
+            // Check allowance again after approval
+            try {
+              const allowanceData = '0xdd62ed3e' + 
+                walletAddress.slice(2).padStart(64, '0') + 
+                CONFIG.PaymentProcessor.slice(2).padStart(64, '0');
+              
+              const currentAllowance = await window.ethereum.request({
+                method: 'eth_call',
+                params: [{ to: CONFIG.PYUSD, data: allowanceData }, 'latest']
+              });
+
+              const newAllowance = parseInt(currentAllowance, 16);
+              console.log('[Wallet Bridge] Allowance after approval:', newAllowance);
+              
+              if (newAllowance < requiredAmount) {
+                throw new Error(`Insufficient allowance after approval. Have ${newAllowance / 1000000} PYUSD but need ${requiredAmount / 1000000} PYUSD`);
+              }
+            } catch (allowanceError) {
+              console.warn('[Wallet Bridge] Could not verify allowance after approval:', allowanceError.message);
+            }
+
             // Process payment through PaymentProcessor
             console.log('[Wallet Bridge] Processing payment through PaymentProcessor...');
+            console.log('[Wallet Bridge] Amount in units:', amountInUnits);
+            console.log('[Wallet Bridge] Receipt CID:', receiptCid);
             
             try {
               // Encode function call for processPayment
@@ -483,9 +563,19 @@
                 'processPayment(string,uint256,string,address,string)'.split('')
                   .map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
               
-              const productIdBytes = Buffer.from('unknown');
-              const receiptCidBytes = Buffer.from(receiptCid);
-              const currencyBytes = Buffer.from('PYUSD');
+              const productIdBytes = new TextEncoder().encode('unknown');
+              const receiptCidBytes = new TextEncoder().encode(receiptCid);
+              const currencyBytes = new TextEncoder().encode('PYUSD');
+              
+              // Convert Uint8Array to hex string
+              const productIdHex = Array.from(productIdBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+              const receiptCidHex = Array.from(receiptCidBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+              const currencyHex = Array.from(currencyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+              
+              console.log('[Wallet Bridge] Encoded data:');
+              console.log('[Wallet Bridge] ProductId hex:', productIdHex);
+              console.log('[Wallet Bridge] ReceiptCid hex:', receiptCidHex);
+              console.log('[Wallet Bridge] Currency hex:', currencyHex);
               
               const processPaymentData = functionSelector +
                 '00000000000000000000000000000000000000000000000000000000000000a0' + // productId offset
@@ -494,11 +584,36 @@
                 CONFIG.PYUSD.slice(2).padStart(64, '0') + // paymentToken
                 '00000000000000000000000000000000000000000000000000000000000000e0' + // currency offset
                 '000000000000000000000000000000000000000000000000000000000000000' + productIdBytes.length + // productId length
-                productIdBytes.toString('hex').padEnd(64, '0') + // productId
+                productIdHex.padEnd(64, '0') + // productId
                 '000000000000000000000000000000000000000000000000000000000000000' + receiptCidBytes.length + // receiptCid length
-                receiptCidBytes.toString('hex').padEnd(64, '0') + // receiptCid
+                receiptCidHex.padEnd(64, '0') + // receiptCid
                 '000000000000000000000000000000000000000000000000000000000000000' + currencyBytes.length + // currency length
-                currencyBytes.toString('hex').padEnd(64, '0'); // currency
+                currencyHex.padEnd(64, '0'); // currency
+
+              console.log('[Wallet Bridge] Process payment data:', processPaymentData);
+
+              // Estimate gas for the payment transaction
+              let paymentGasEstimate;
+              try {
+                paymentGasEstimate = await window.ethereum.request({
+                  method: 'eth_estimateGas',
+                  params: [{
+                    from: walletAddress,
+                    to: CONFIG.PaymentProcessor,
+                    data: processPaymentData
+                  }]
+                });
+                console.log('[Wallet Bridge] Gas estimate for payment:', paymentGasEstimate);
+              } catch (gasError) {
+                console.warn('[Wallet Bridge] Payment gas estimation failed, using default:', gasError.message);
+                paymentGasEstimate = '0x186a0'; // 100000 gas as fallback
+              }
+
+              // Get current gas price for payment
+              const paymentGasPrice = await window.ethereum.request({
+                method: 'eth_gasPrice'
+              });
+              console.log('[Wallet Bridge] Payment gas price:', paymentGasPrice);
 
               const paymentTx = await window.ethereum.request({
                 method: 'eth_sendTransaction',
@@ -506,7 +621,8 @@
                   from: walletAddress,
                   to: CONFIG.PaymentProcessor,
                   data: processPaymentData,
-                  gas: '0x186a0'
+                  gas: paymentGasEstimate,
+                  gasPrice: paymentGasPrice
                 }]
               });
 
@@ -514,7 +630,11 @@
               
               // Wait for payment confirmation
               const paymentReceipt = await new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 30; // 60 seconds total
+                
                 const checkInterval = setInterval(async () => {
+                  attempts++;
                   try {
                     const receipt = await window.ethereum.request({
                       method: 'eth_getTransactionReceipt',
@@ -522,14 +642,21 @@
                     });
                     if (receipt) {
                       clearInterval(checkInterval);
+                      console.log('[Wallet Bridge] Payment receipt received:', receipt);
                       if (receipt.status === '0x1') {
+                        console.log('[Wallet Bridge] Payment transaction successful');
                         resolve(receipt);
                       } else {
-                        reject(new Error('Payment transaction failed'));
+                        console.error('[Wallet Bridge] Payment transaction failed with status:', receipt.status);
+                        reject(new Error('Payment transaction failed - check transaction details'));
                       }
+                    } else if (attempts >= maxAttempts) {
+                      clearInterval(checkInterval);
+                      reject(new Error('Payment transaction timeout - transaction may still be pending'));
                     }
                   } catch (err) {
                     clearInterval(checkInterval);
+                    console.error('[Wallet Bridge] Error checking payment transaction:', err);
                     reject(err);
                   }
                 }, 2000);
