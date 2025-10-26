@@ -2,10 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import AssistantInput from './AssistantInput';
 import BuyCard from './BuyCard';
+import ReceiptCard from './ReceiptCard';
+import FeedbackCard from './FeedbackCard';
 import CurrentPageIndicator from './CurrentPageIndicator';
 import { AlertCircle, WalletIcon } from 'lucide-react';
+import { ethers } from 'ethers';
 import { getConnectedWallet } from '../utils/auth.js';
 import { createSession, getCurrentSession, saveCurrentSession, getCurrentTabInfo, sendChatMessage, getSessionDetails } from '../utils/session.js';
+import { handleBuyNowClick as processFVMTransaction } from '../services/fvmService.js';
+import { submitFeedback } from '../services/fvmService.js';
 
 const ChatWindow = () => {
   const [messages, setMessages] = useState([]);
@@ -55,8 +60,12 @@ const ChatWindow = () => {
           // CLEAR previous messages (keep context fresh)
           setMessages([{
             id: `page-change-${Date.now()}`,
-            type: 'bot',
-            content: `🔄 **Page Changed!**\n\nI've detected you're now on: **${tabInfo.domain}**\n\nI've cleared my previous context and I'm ready to analyze this new page. Ask me anything about this product!`,
+          type: 'bot',
+            content: `🔄 **Page Changed!**
+
+I've detected you're now on: **${tabInfo.domain}**
+
+I've cleared my previous context and I'm ready to analyze this new page. Ask me anything about this product!`,
             timestamp: new Date().toISOString(),
           }]);
           
@@ -231,9 +240,42 @@ const ChatWindow = () => {
     }
   };
 
-  const handleBuyClick = (url) => {
-    // Open product page in new tab
-    window.open(url, '_blank');
+  const handleBuyNowClick = async (productData, paymentMethod) => {
+    try {
+      console.log('[ChatWindow] Buy Now clicked:', { productData, paymentMethod });
+      
+      if (!walletAddress) {
+        throw new Error('Please connect your wallet first from the Wallet tab.');
+      }
+      
+      console.log('[ChatWindow] ⚠️ PAYMENT PROCESSING NOT IMPLEMENTED');
+      console.log('[ChatWindow] ⚠️ This is a UI mockup - actual payment will be implemented');
+      console.log('[ChatWindow] ⚠️ Need to integrate with actual smart contract calls');
+      
+      // SHOW ERROR - DON'T FAKE SUCCESS
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        type: 'bot',
+        content: `⚠️ **Payment Processing Not Ready**\n\n**This feature is under development.**\n\nTo process PYUSD payments, we need to:\n1. Connect to MetaMask from page context\n2. Call PaymentProcessor contract\n3. Upload receipt to Lighthouse\n4. Record transaction on-chain\n\n**Current Status:** UI mockup only - no actual transactions processed.`,
+        timestamp: new Date().toISOString(),
+        isError: true
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+      console.log('[ChatWindow] ❌ Payment not implemented - showing error instead of fake success');
+    } catch (error) {
+      console.error('[ChatWindow] Buy Now error:', error);
+      
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        type: 'bot',
+        content: `❌ **Payment Failed**\n\n${error.message}\n\nPlease ensure you are on Sepolia testnet and have sufficient balance.`,
+        timestamp: new Date().toISOString(),
+        isError: true
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    }
   };
 
   const handleRefreshContext = async () => {
@@ -387,7 +429,14 @@ const ChatWindow = () => {
       const errorMessage = {
         id: `error-${Date.now()}`,
         type: 'bot',
-        content: `⚠️ **Backend Service Error**\n\nI couldn't process your request. ${errorDetails}\n\n**Troubleshooting:**\n- Check Settings → Backend Configuration\n- Ensure backend server is running\n- Verify your account is active`,
+        content: `⚠️ **Backend Service Error**
+
+I couldn't process your request. ${errorDetails}
+
+**Troubleshooting:**
+- Check Settings → Backend Configuration
+- Ensure backend server is running
+- Verify your account is active`,
         timestamp: new Date().toISOString(),
         isError: true,
       };
@@ -518,10 +567,61 @@ const ChatWindow = () => {
                 <div className="mt-3">
                   <BuyCard 
                     productData={message.productData}
-                    onBuyClick={handleBuyClick}
+                    onBuyClick={handleBuyNowClick}
+                    walletAddress={walletAddress}
                   />
                 </div>
               )}
+              
+              {/* Show Receipt Card if purchase successful */}
+              {message.showReceiptCard && message.receiptData && (
+                  <div className="mt-3">
+                  <ReceiptCard
+                    receiptData={message.receiptData}
+                    onFeedbackClick={(receiptId) => {
+                      // Add feedback card to messages
+                      const feedbackMessage = {
+                        id: `feedback-${Date.now()}`,
+                        type: 'bot',
+                        content: 'We\'d love to hear your feedback! Please rate your experience.',
+                        timestamp: new Date().toISOString(),
+                        showFeedbackCard: true,
+                        receiptId: receiptId
+                      };
+                      setMessages(prev => [...prev, feedbackMessage]);
+                    }}
+                    />
+                  </div>
+                )}
+
+              {/* Show Feedback Card */}
+              {message.showFeedbackCard && message.receiptId && (
+                  <div className="mt-3">
+                  <FeedbackCard
+                    receiptId={message.receiptId}
+                    onSubmit={async (receiptId, feedbackData) => {
+                      // Submit feedback through FVM service
+                      if (!window.ethereum || !walletAddress) return;
+                      
+                      const provider = new ethers.BrowserProvider(window.ethereum);
+                      const result = await submitFeedback(receiptId, feedbackData, walletAddress, provider);
+                      
+                      if (result.success) {
+                        // Update message with submission status and reward
+                        setMessages(prev => prev.map(msg => 
+                          msg.id === message.id 
+                            ? { ...msg, isFeedbackSubmitted: true, feedbackReward: result.reward }
+                            : msg
+                        ));
+                      } else {
+                        throw new Error(result.error);
+                      }
+                    }}
+                    isSubmitted={message.isFeedbackSubmitted}
+                    reward={message.feedbackReward}
+                  />
+                  </div>
+                )}
             </div>
           </div>
         ))}

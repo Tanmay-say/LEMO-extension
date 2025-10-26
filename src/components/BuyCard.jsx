@@ -1,15 +1,21 @@
-import React from 'react';
-import { ShoppingCart, ExternalLink, Star, Heart, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingCart, ExternalLink, Heart, Plus, ChevronDown } from 'lucide-react';
+import { checkPYUSDBalance, formatPYUSDAmount } from '../services/pyusdPayment';
+import { ethers } from 'ethers';
 
-const BuyCard = ({ productData, onBuyClick }) => {
+const BuyCard = ({ productData, onBuyClick, walletAddress }) => {
+  const [paymentMethod, setPaymentMethod] = useState('PYUSD');
+  const [pyusdBalance, setPyusdBalance] = useState(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
+  
   // Extract product information
   const {
     title = 'Product Name',
     price = '₹0',
     originalPrice = '',
     discount = '',
-    rating = '0',
-    reviewCount = '0',
     image = '',
     description = 'Premium product with excellent features',
     url = '#'
@@ -24,6 +30,74 @@ const BuyCard = ({ productData, onBuyClick }) => {
   };
 
   const usdPrice = convertToUSD(price);
+
+  // Fetch PYUSD balance when wallet is connected
+  useEffect(() => {
+    if (walletAddress && paymentMethod === 'PYUSD') {
+      fetchPYUSDBalance();
+    }
+  }, [walletAddress, paymentMethod]);
+
+  const fetchPYUSDBalance = async () => {
+    if (!walletAddress) {
+      console.log('[BuyCard] No wallet connected');
+      setPyusdBalance('0');
+      return;
+    }
+    
+    setIsLoadingBalance(true);
+    try {
+      // Access MetaMask via wallet bridge in page context
+      const response = await new Promise((resolve) => {
+        window.postMessage({
+          source: 'lemo-extension',
+          action: 'GET_SPECIFIC_TOKEN_BALANCE',
+          tokenSymbol: 'PYUSD',
+          account: walletAddress
+        }, '*');
+        
+        // Listen for response
+        const handler = (event) => {
+          if (event.source === window && event.data && event.data.source === 'lemo-extension-response') {
+            window.removeEventListener('message', handler);
+            resolve(event.data);
+          }
+        };
+        window.addEventListener('message', handler);
+      });
+      
+      if (response && response.success) {
+        setPyusdBalance(response.balance || '0');
+      } else {
+        setPyusdBalance('0');
+      }
+    } catch (error) {
+      console.error('[BuyCard] Error fetching PYUSD balance:', error);
+      setPyusdBalance('0');
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  };
+
+  const handleBuyNowClick = async () => {
+    if (!walletAddress) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Call parent component's handler with payment method
+      await onBuyClick(productData, paymentMethod);
+    } catch (err) {
+      console.error('Buy Now error:', err);
+      setError(err.message || 'Payment failed. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="mt-4">
@@ -79,21 +153,6 @@ const BuyCard = ({ productData, onBuyClick }) => {
             {title}
           </h4>
 
-          {/* Rating */}
-          <div className="flex items-center gap-1 mb-2">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <Star 
-                  key={i} 
-                  className={`w-3 h-3 ${i < Math.floor(parseFloat(rating)) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
-                />
-              ))}
-            </div>
-            <span className="text-xs text-gray-600 font-medium">
-              {rating}/5 ({reviewCount} reviews)
-            </span>
-          </div>
-
           {/* Price Section */}
           <div className="mb-3">
             <div className="flex items-baseline gap-2 mb-1">
@@ -114,24 +173,84 @@ const BuyCard = ({ productData, onBuyClick }) => {
             </p>
           </div>
 
+          {/* Payment Method Dropdown */}
+          <div className="mb-3">
+            <label className="text-xs font-semibold text-gray-700 mb-1 block">
+              Payment Method
+            </label>
+            <div className="relative">
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full bg-white/40 backdrop-blur-sm border border-orange-200/50 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 appearance-none cursor-pointer hover:bg-white/50 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                disabled={isProcessing}
+              >
+                <option value="PYUSD">PYUSD (PayPal USD)</option>
+                <option value="USDC">USDC</option>
+                <option value="ETH">ETH</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
+            </div>
+            
+            {/* Balance Display */}
+            {paymentMethod === 'PYUSD' && walletAddress && (
+              <div className="mt-1.5 text-xs text-gray-600 flex items-center justify-between">
+                <span>Your Balance:</span>
+                <span className="font-semibold text-orange-700">
+                  {isLoadingBalance ? (
+                    <span className="animate-pulse">Loading...</span>
+                  ) : (
+                    `${pyusdBalance || '0'} PYUSD`
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs text-red-700">{error}</p>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex gap-2">
             {/* Add to Cart Button */}
-            <button className="flex-1 bg-white/30 hover:bg-white/40 backdrop-blur-sm text-orange-700 font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 border border-orange-200/50 hover:border-orange-300/70 shadow-md hover:shadow-lg transform hover:scale-105">
+            <button 
+              className="flex-1 bg-white/30 hover:bg-white/40 backdrop-blur-sm text-orange-700 font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 border border-orange-200/50 hover:border-orange-300/70 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isProcessing}
+            >
               <Plus className="w-3 h-3" />
               <span className="text-xs">Add to Cart</span>
             </button>
 
             {/* Buy Now Button */}
             <button
-              onClick={() => onBuyClick(url)}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg transform hover:scale-105"
+              onClick={handleBuyNowClick}
+              disabled={isProcessing}
+              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ShoppingCart className="w-3 h-3" />
-              <span className="text-xs">Buy Now</span>
-              <ExternalLink className="w-2.5 h-2.5" />
+              {isProcessing ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs">Processing...</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-3 h-3" />
+                  <span className="text-xs">Buy with {paymentMethod}</span>
+                </>
+              )}
             </button>
           </div>
+
+          {/* Payment Method Info */}
+          {paymentMethod === 'PYUSD' && (
+            <div className="mt-2 text-[10px] text-center text-gray-600">
+              💳 Secure payment with PayPal USD stablecoin
+            </div>
+          )}
         </div>
       </div>
     </div>

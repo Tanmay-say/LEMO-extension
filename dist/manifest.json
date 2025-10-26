@@ -19,7 +19,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/index.jsx-B_xrekR6.js"
+        "assets/index.jsx-CddM0ww5.js"
       ],
       "matches": [
         "http://*/*",
@@ -27,7 +27,7 @@
       ],
       "run_at": "document_end",
       "css": [
-        "assets/index-CyEAwNnU.css"
+        "assets/index-BtAq9rTu.css"
       ]
     }
   ],
@@ -47,7 +47,7 @@
       "resources": [
         "src/content/*",
         "logo.png",
-        "assets/index.jsx-B_xrekR6.js"
+        "assets/index.jsx-CddM0ww5.js"
       ],
       "use_dynamic_url": false
     }

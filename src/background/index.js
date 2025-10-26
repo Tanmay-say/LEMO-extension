@@ -129,4 +129,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   }
 });
 
+console.log('Lemo AI Assistant: Background script initialized');chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'loading') {
+    chrome.action.setBadgeText({ text: '', tabId });
+  }
+});
+
 console.log('Lemo AI Assistant: Background script initialized');
