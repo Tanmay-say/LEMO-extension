@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, ExternalLink, Star } from 'lucide-react';
+import { ShoppingCart, ExternalLink, Star, Heart, Plus } from 'lucide-react';
 
 const BuyCard = ({ productData, onBuyClick }) => {
   // Extract product information
@@ -26,99 +26,113 @@ const BuyCard = ({ productData, onBuyClick }) => {
   const usdPrice = convertToUSD(price);
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4 mt-4 shadow-lg">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <ShoppingCart className="w-5 h-5 text-orange-600" />
-        <h3 className="font-semibold text-orange-800">Ready to Purchase?</h3>
-      </div>
+    <div className="mt-4">
+      {/* Compact Card Container */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-400/15 via-orange-300/10 to-orange-500/20 backdrop-blur-sm border border-orange-200/25 shadow-lg">
+        {/* Card Content */}
+        <div className="relative p-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center">
+                <ShoppingCart className="w-3 h-3 text-white" />
+              </div>
+              <h3 className="text-sm font-bold text-orange-800">Ready to Purchase?</h3>
+            </div>
+            <button className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 backdrop-blur-sm">
+              <Heart className="w-4 h-4 text-orange-600" />
+            </button>
+          </div>
 
-      {/* Product Card */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border border-orange-100">
-        {/* Product Image */}
-        <div className="flex gap-4">
-          <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-            {image ? (
-              <img 
-                src={image} 
-                alt={title}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-            ) : null}
-            <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white font-bold text-lg">
-              {title.charAt(0)}
+          {/* Product Image */}
+          <div className="mb-3">
+            <div className="relative w-full h-32 rounded-lg overflow-hidden bg-gradient-to-br from-orange-100 to-orange-200 shadow-md">
+              {image ? (
+                <img 
+                  src={image} 
+                  alt={title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white">
+                <div className="text-center">
+                  <div className="text-3xl font-bold mb-1">{title.charAt(0)}</div>
+                  <div className="text-xs opacity-80">Product Image</div>
+                </div>
+              </div>
+              
+              {/* Discount Badge */}
+              {discount && (
+                <div className="absolute top-2 left-2 bg-gradient-to-r from-red-500 to-red-600 text-white px-2 py-1 rounded-full text-xs font-bold shadow-md">
+                  {discount} OFF
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Product Details */}
-          <div className="flex-1">
-            {/* Title */}
-            <h4 className="font-semibold text-gray-800 text-sm leading-tight mb-2 line-clamp-2">
-              {title}
-            </h4>
+          {/* Product Title */}
+          <h4 className="text-sm font-bold text-gray-800 mb-2 leading-tight line-clamp-2">
+            {title}
+          </h4>
 
-            {/* Rating */}
-            <div className="flex items-center gap-1 mb-2">
-              <Star className="w-3 h-3 text-yellow-400 fill-current" />
-              <span className="text-xs text-gray-600">
-                {rating}/5 ({reviewCount} reviews)
-              </span>
+          {/* Rating */}
+          <div className="flex items-center gap-1 mb-2">
+            <div className="flex items-center">
+              {[...Array(5)].map((_, i) => (
+                <Star 
+                  key={i} 
+                  className={`w-3 h-3 ${i < Math.floor(parseFloat(rating)) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                />
+              ))}
             </div>
+            <span className="text-xs text-gray-600 font-medium">
+              {rating}/5 ({reviewCount} reviews)
+            </span>
+          </div>
 
-            {/* Price */}
-            <div className="mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-orange-600">{price}</span>
-                <span className="text-sm text-gray-500">{usdPrice}</span>
+          {/* Price Section */}
+          <div className="mb-3">
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-lg font-bold text-orange-600">{price}</span>
+              <span className="text-sm text-gray-500 font-medium">{usdPrice}</span>
+            </div>
+            {originalPrice && (
+              <div className="text-xs text-gray-500 line-through">
+                {originalPrice}
               </div>
-              {originalPrice && (
-                <div className="text-xs text-gray-500 line-through">
-                  {originalPrice}
-                </div>
-              )}
-              {discount && (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                  {discount} off
-                </span>
-              )}
-            </div>
+            )}
+          </div>
 
-            {/* Description */}
-            <p className="text-xs text-gray-600 line-clamp-2 mb-3">
+          {/* Description */}
+          <div className="mb-4">
+            <p className="text-gray-700 leading-relaxed text-xs line-clamp-2">
               {description}
             </p>
+          </div>
 
-            {/* Buy Button */}
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {/* Add to Cart Button */}
+            <button className="flex-1 bg-white/30 hover:bg-white/40 backdrop-blur-sm text-orange-700 font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 border border-orange-200/50 hover:border-orange-300/70 shadow-md hover:shadow-lg transform hover:scale-105">
+              <Plus className="w-3 h-3" />
+              <span className="text-xs">Add to Cart</span>
+            </button>
+
+            {/* Buy Now Button */}
             <button
               onClick={() => onBuyClick(url)}
-              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg transform hover:scale-105"
             >
-              <ShoppingCart className="w-4 h-4" />
-              Buy Now
-              <ExternalLink className="w-3 h-3" />
+              <ShoppingCart className="w-3 h-3" />
+              <span className="text-xs">Buy Now</span>
+              <ExternalLink className="w-2.5 h-2.5" />
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Trust Indicators */}
-      <div className="flex items-center justify-center gap-4 mt-3 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-          Secure Payment
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-          Fast Delivery
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-          Easy Returns
-        </span>
       </div>
     </div>
   );

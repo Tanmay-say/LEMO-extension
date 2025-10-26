@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import AssistantInput from './AssistantInput';
 import BuyCard from './BuyCard';
+import CurrentPageIndicator from './CurrentPageIndicator';
 import { AlertCircle, WalletIcon } from 'lucide-react';
 import { getConnectedWallet } from '../utils/auth.js';
 import { createSession, getCurrentSession, saveCurrentSession, getCurrentTabInfo, sendChatMessage, getSessionDetails } from '../utils/session.js';
@@ -16,7 +17,11 @@ const ChatWindow = () => {
   const [error, setError] = useState(null);
   const [isBackendAvailable, setIsBackendAvailable] = useState(true);
   const [currentProductData, setCurrentProductData] = useState(null);
+  const [currentPageUrl, setCurrentPageUrl] = useState('');
+  const [currentPageDomain, setCurrentPageDomain] = useState('');
+  const [isRefreshingContext, setIsRefreshingContext] = useState(false);
   const messagesEndRef = useRef(null);
+  const previousUrlRef = useRef('');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,6 +34,59 @@ const ChatWindow = () => {
   useEffect(() => {
     initializeChat();
   }, []);
+
+  // URL change detection
+  useEffect(() => {
+    const checkUrlChange = async () => {
+      try {
+        const currentUrl = window.location.href;
+        
+        if (currentUrl !== previousUrlRef.current && previousUrlRef.current !== '') {
+          console.log('[CHAT] URL changed detected:', {
+            from: previousUrlRef.current,
+            to: currentUrl
+          });
+          
+          // Update current page info
+          const tabInfo = await getCurrentTabInfo();
+          setCurrentPageUrl(tabInfo.url);
+          setCurrentPageDomain(tabInfo.domain);
+          
+          // Create new session for new page
+          if (walletAddress && tabInfo.url !== 'chrome://newtab') {
+            try {
+              const newSession = await createSession(walletAddress, tabInfo.url, tabInfo.domain);
+              setSessionId(newSession.id || newSession.session_id);
+              await saveCurrentSession(newSession.id || newSession.session_id);
+              
+              // Add system message about page change
+              const pageChangeMessage = {
+                id: `page-change-${Date.now()}`,
+                type: 'bot',
+                content: `🌐 **Page changed!** I'm now analyzing: ${tabInfo.domain}`,
+                timestamp: new Date().toISOString(),
+              };
+              setMessages(prev => [...prev, pageChangeMessage]);
+            } catch (error) {
+              console.error('Error creating session for new page:', error);
+            }
+          }
+        }
+        
+        previousUrlRef.current = currentUrl;
+      } catch (error) {
+        console.error('Error checking URL change:', error);
+      }
+    };
+
+    // Check URL change every 2 seconds
+    const interval = setInterval(checkUrlChange, 2000);
+    
+    // Initial check
+    checkUrlChange();
+
+    return () => clearInterval(interval);
+  }, [walletAddress]);
 
   const initializeChat = async () => {
     try {
@@ -50,6 +108,12 @@ const ChatWindow = () => {
       // Wallet is connected - enable chat
       setWalletAddress(wallet);
       setIsAuthenticated(true);
+
+      // Initialize current page info
+      const tabInfo = await getCurrentTabInfo();
+      setCurrentPageUrl(tabInfo.url);
+      setCurrentPageDomain(tabInfo.domain);
+      previousUrlRef.current = tabInfo.url;
 
       // Try to load existing session (gracefully fail if backend unavailable)
       const existingSessionId = await getCurrentSession();
@@ -101,26 +165,23 @@ const ChatWindow = () => {
     }
   };
 
-  // Detect purchase intent from user message
+  // Detect purchase intent from user message (LESS AGGRESSIVE)
   const detectPurchaseIntent = (message) => {
-    const highIntentKeywords = ['buy', 'purchase', 'order', 'get', 'worth it', 'should i', 'recommend', 'ready to buy'];
-    const mediumIntentKeywords = ['price', 'cost', 'expensive', 'cheap', 'value', 'deal', 'discount'];
-    const interestKeywords = ['good', 'best', 'quality', 'features', 'reviews', 'compare', 'interested'];
+    // ONLY high intent keywords - very explicit buying signals
+    const highIntentKeywords = [
+      'buy', 'purchase', 'order', 'ready to buy', 'want to buy', 'i will buy',
+      'show buy card', 'buy card', 'buy now', 'add to cart', 'checkout', 'proceed to buy'
+    ];
     
-    const lowerMessage = message.toLowerCase();
+    // REMOVED: mediumIntentKeywords and interestKeywords that were too aggressive
+    
+    const lowerMessage = message.toLowerCase().trim();
     
     // High intent detection
     const hasHighIntent = highIntentKeywords.some(keyword => lowerMessage.includes(keyword));
     if (hasHighIntent) return 'high';
     
-    // Medium intent detection
-    const hasMediumIntent = mediumIntentKeywords.some(keyword => lowerMessage.includes(keyword));
-    if (hasMediumIntent) return 'medium';
-    
-    // Interest detection
-    const hasInterest = interestKeywords.some(keyword => lowerMessage.includes(keyword));
-    if (hasInterest) return 'low';
-    
+    // Return 'none' for everything else - be much more conservative
     return 'none';
   };
 
@@ -174,6 +235,35 @@ const ChatWindow = () => {
   const handleBuyClick = (url) => {
     // Open product page in new tab
     window.open(url, '_blank');
+  };
+
+  const handleRefreshContext = async () => {
+    setIsRefreshingContext(true);
+    try {
+      const tabInfo = await getCurrentTabInfo();
+      setCurrentPageUrl(tabInfo.url);
+      setCurrentPageDomain(tabInfo.domain);
+      
+      // Create new session with refreshed URL
+      if (walletAddress) {
+        const newSession = await createSession(walletAddress, tabInfo.url, tabInfo.domain);
+        setSessionId(newSession.id || newSession.session_id);
+        await saveCurrentSession(newSession.id || newSession.session_id);
+        
+        // Add system message about page refresh
+        const refreshMessage = {
+          id: `refresh-${Date.now()}`,
+          type: 'bot',
+          content: '🔄 **Page context refreshed!** I\'ve updated my understanding of the current page.',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, refreshMessage]);
+      }
+    } catch (error) {
+      console.error('Error refreshing context:', error);
+    } finally {
+      setIsRefreshingContext(false);
+    }
   };
 
   const handleSendMessage = async (inputValue) => {
@@ -245,9 +335,22 @@ const ChatWindow = () => {
           const productData = extractProductData(response.answer);
           const shouldShowBuyCard = intent !== 'none' && productData && productData.title;
           
+          console.log('[CHAT] Purchase Intent Detection:', {
+            userMessage: inputValue,
+            detectedIntent: intent,
+            extractedProductData: productData,
+            shouldShowBuyCard: shouldShowBuyCard
+          });
+          
           if (shouldShowBuyCard) {
             setCurrentProductData(productData);
-            console.log('[CHAT] Product data extracted:', productData);
+            console.log('[CHAT] ✓ Buy Card will be shown with:', productData);
+          } else {
+            console.log('[CHAT] ✗ Buy Card not shown. Reason:', {
+              intent: intent,
+              hasProductData: !!productData,
+              hasTitle: !!(productData && productData.title)
+            });
           }
 
           // Add bot response from backend
@@ -312,7 +415,7 @@ const ChatWindow = () => {
   const formatTime = (timestamp) => {
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (err) {
       return '';
     }
@@ -444,6 +547,12 @@ const ChatWindow = () => {
 
       {/* Input Area */}
       <div className="p-4 bg-white border-t border-gray-200">
+        <CurrentPageIndicator 
+          url={currentPageUrl}
+          domain={currentPageDomain}
+          onRefresh={handleRefreshContext}
+          isRefreshing={isRefreshingContext}
+        />
         <AssistantInput 
           onSendMessage={handleSendMessage}
           disabled={!isAuthenticated || isTyping}
@@ -452,8 +561,11 @@ const ChatWindow = () => {
           {sessionId && (
             <button
               onClick={clearChat}
-              className="text-gray-400 hover:text-orange-600 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
             >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
               New Chat
             </button>
           )}

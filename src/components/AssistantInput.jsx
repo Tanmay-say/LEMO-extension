@@ -8,6 +8,11 @@ const AssistantInput = ({ onSendMessage, disabled = false }) => {
     autoGrow();
   }, [inputValue]);
 
+  useEffect(() => {
+    // Fix initial height on mount
+    autoGrow();
+  }, []);
+
   const handleSend = () => {
     if (inputValue.trim()) {
       // Handle send action
